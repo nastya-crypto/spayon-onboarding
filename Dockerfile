@@ -23,7 +23,6 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copy Next.js build output
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
 
 # Copy generated Prisma client
 COPY --from=builder /app/src/generated ./src/generated

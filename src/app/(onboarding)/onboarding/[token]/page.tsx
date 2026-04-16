@@ -22,12 +22,14 @@ export default async function OnboardingPage({
           </svg>
         </div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">
-          {isUsed ? "Ссылка уже использована" : "Ссылка недействительна"}
+          {isUsed
+            ? "Link already used / Ссылка уже использована"
+            : "Invalid link / Ссылка недействительна"}
         </h2>
         <p className="text-gray-500 text-sm max-w-xs">
           {isUsed
-            ? "По этой ссылке уже была подана заявка. Обратитесь к менеджеру для получения новой ссылки."
-            : "Ссылка устарела или не существует. Запросите новую ссылку у вашего менеджера."}
+            ? "This link has already been used. Please contact your manager for a new one. / По этой ссылке уже была подана заявка. Обратитесь к менеджеру для новой ссылки."
+            : "This link has expired or does not exist. Please request a new one from your manager. / Ссылка устарела или не существует. Запросите новую ссылку у менеджера."}
         </p>
       </div>
     );

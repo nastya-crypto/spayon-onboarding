@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         const storagePath = `${merchant.id}/logo-${Date.now()}-${safeName}`;
         const buffer = await logoFile.arrayBuffer();
 
-        const { error: uploadError } = await supabaseAdmin.storage
+        const { error: uploadError } = await getSupabaseAdmin().storage
           .from(LOGOS_BUCKET)
           .upload(storagePath, buffer, {
             contentType: logoFile.type,
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         if (uploadError) {
           console.error("[onboarding/submit] supabase upload error:", uploadError.message);
         } else {
-          const { data: { publicUrl } } = supabaseAdmin.storage
+          const { data: { publicUrl } } = getSupabaseAdmin().storage
             .from(LOGOS_BUCKET)
             .getPublicUrl(storagePath);
 

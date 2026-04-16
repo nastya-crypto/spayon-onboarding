@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
+
+const MAX_LOGO_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
+const LOGOS_BUCKET = "logos";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,13 +17,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
-    const record = await prisma.onboardingToken.findUnique({ where: { token } });
-    if (!record || record.usedAt || record.expiresAt < new Date()) {
+    // Atomically mark the token as used — prevents race condition on double-submit
+    const updated = await prisma.onboardingToken.updateMany({
+      where: { token, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (updated.count === 0) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 });
     }
 
     const email = formData.get("email") as string;
     const contactName = formData.get("contactName") as string;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
+    }
+    if (!contactName?.trim()) {
+      return NextResponse.json({ error: "Contact name is required" }, { status: 400 });
+    }
+
+    // Validate logo before creating any records
+    const logoFile = formData.get("logo") as File | null;
+    if (logoFile && logoFile.size > 0) {
+      if (logoFile.size > MAX_LOGO_SIZE) {
+        return NextResponse.json({ error: "Logo file must be under 5 MB" }, { status: 400 });
+      }
+      if (!ALLOWED_MIME_TYPES.includes(logoFile.type)) {
+        return NextResponse.json({ error: "Logo must be PNG, JPG or SVG" }, { status: 400 });
+      }
+    }
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -72,43 +97,49 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Logo upload
-    const logoFile = formData.get("logo") as File | null;
+    // Logo upload to Supabase Storage
     if (logoFile && logoFile.size > 0) {
-      const uploadsDir = path.join(process.cwd(), "public", "uploads", merchant.id);
-      await mkdir(uploadsDir, { recursive: true });
+      try {
+        const safeName = logoFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${merchant.id}/logo-${Date.now()}-${safeName}`;
+        const buffer = await logoFile.arrayBuffer();
 
-      const safeName = logoFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filename = `logo-${Date.now()}-${safeName}`;
-      const buffer = Buffer.from(await logoFile.arrayBuffer());
-      await writeFile(path.join(uploadsDir, filename), buffer);
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from(LOGOS_BUCKET)
+          .upload(storagePath, buffer, {
+            contentType: logoFile.type,
+            upsert: false,
+          });
 
-      const logoUrl = `/uploads/${merchant.id}/${filename}`;
-      await prisma.merchant.update({
-        where: { id: merchant.id },
-        data: { logoUrl },
-      });
+        if (uploadError) {
+          console.error("[onboarding/submit] supabase upload error:", uploadError.message);
+        } else {
+          const { data: { publicUrl } } = supabaseAdmin.storage
+            .from(LOGOS_BUCKET)
+            .getPublicUrl(storagePath);
 
-      await prisma.document.create({
-        data: {
-          merchantId: merchant.id,
-          type: "OTHER",
-          name: logoFile.name,
-          url: logoUrl,
-        },
-      });
+          await prisma.merchant.update({
+            where: { id: merchant.id },
+            data: { logoUrl: publicUrl },
+          });
+
+          await prisma.document.create({
+            data: {
+              merchantId: merchant.id,
+              type: "OTHER",
+              name: logoFile.name,
+              url: publicUrl,
+            },
+          });
+        }
+      } catch (uploadErr) {
+        console.error("[onboarding/submit] logo upload failed:", uploadErr);
+      }
     }
-
-    // Mark token used
-    await prisma.onboardingToken.update({
-      where: { token },
-      data: { usedAt: new Date() },
-    });
 
     return NextResponse.json({ success: true, merchantId: merchant.id });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[onboarding/submit]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[onboarding/submit]", err);
+    return NextResponse.json({ error: "Submission failed. Please try again." }, { status: 500 });
   }
 }

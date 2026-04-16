@@ -8,6 +8,9 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (session.user.role !== "ADMIN" && session.user.role !== "REVIEWER") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const [merchants, counts] = await Promise.all([
     prisma.merchant.findMany({
@@ -33,16 +36,19 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await req.json();
-  const { businessName, userId } = body;
+  const { businessName } = body;
 
-  if (!businessName || !userId) {
-    return NextResponse.json({ error: "businessName and userId are required" }, { status: 400 });
+  if (!businessName) {
+    return NextResponse.json({ error: "businessName is required" }, { status: 400 });
   }
 
   const merchant = await prisma.merchant.create({
-    data: { businessName, userId },
+    data: { businessName, userId: session.user.id },
     include: { user: { select: { email: true } } },
   });
 

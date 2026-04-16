@@ -6,7 +6,12 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = "nastya@spayon.io";
+  const email = process.env.ADMIN_EMAIL ?? "nastya@spayon.io";
+  const rawPassword = process.env.ADMIN_PASSWORD;
+
+  if (!rawPassword) {
+    throw new Error("ADMIN_PASSWORD env variable is required to run seed");
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -14,12 +19,12 @@ async function main() {
     return;
   }
 
-  const password = await bcrypt.hash("Admin2026!", 12);
+  const password = await bcrypt.hash(rawPassword, 12);
 
   const user = await prisma.user.create({
     data: {
       email,
-      name: "Nastya",
+      name: process.env.ADMIN_NAME ?? "Admin",
       password,
       role: "ADMIN",
     },

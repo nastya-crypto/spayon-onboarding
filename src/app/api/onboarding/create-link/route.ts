@@ -23,8 +23,7 @@ export async function POST(req: NextRequest) {
     const url = `${process.env.NEXTAUTH_URL}/onboarding/${record.token}`;
     return NextResponse.json({ url, token: record.token });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[create-link]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[create-link]", err);
+    return NextResponse.json({ error: "Failed to create link. Please try again." }, { status: 500 });
   }
 }

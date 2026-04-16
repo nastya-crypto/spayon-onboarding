@@ -1,7 +1,9 @@
 export const dynamic = "force-dynamic";
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db";
 import { StatusChanger } from "@/components/dashboard/StatusChanger";
 
@@ -40,6 +42,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function MerchantPage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  if (session.user.role !== "ADMIN" && session.user.role !== "REVIEWER") {
+    redirect("/login");
+  }
+
   const merchant = await prisma.merchant.findUnique({
     where: { id: params.id },
     include: { contacts: true },

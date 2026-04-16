@@ -10,6 +10,9 @@ export async function PATCH(
   if (!token?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (token.role !== "ADMIN" && token.role !== "REVIEWER") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await req.json() as { status?: string };
   const { status } = body;

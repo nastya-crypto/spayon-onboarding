@@ -35,18 +35,27 @@ export function StatusChanger({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<Status | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function changeStatus(status: Status) {
     if (status === currentStatus) return;
     setLoading(status);
+    setError(null);
     try {
-      await fetch(`/api/merchants/${merchantId}/status`, {
+      const res = await fetch(`/api/merchants/${merchantId}/status`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError((json as { error?: string }).error ?? "Failed to update status");
+        return;
+      }
       router.refresh();
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setLoading(null);
     }
@@ -57,6 +66,11 @@ export function StatusChanger({
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
         Change Status
       </h2>
+      {error && (
+        <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         {BUTTONS.map(({ status, label, active, idle }) => {
           const isCurrent = currentStatus === status;

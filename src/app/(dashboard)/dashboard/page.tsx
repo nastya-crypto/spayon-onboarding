@@ -1,5 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { MerchantsTable } from "@/components/dashboard/MerchantsTable";
@@ -32,6 +35,12 @@ async function getMerchantsData() {
 }
 
 export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+  if (session.user.role !== "ADMIN" && session.user.role !== "REVIEWER") {
+    redirect("/login");
+  }
+
   const { merchants, stats } = await getMerchantsData();
 
   return (

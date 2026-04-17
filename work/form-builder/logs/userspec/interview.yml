@@ -13,7 +13,7 @@
 interview_metadata:
   started: "2026-04-17 00:00:00"
   last_updated: "2026-04-17 00:00:00"
-  status: "in_progress"
+  status: "completed"
   can_resume: true
   current_question_num: 1
   feature_size: "L"  # dynamic form builder + templates + link system = large

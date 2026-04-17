@@ -1,6 +1,6 @@
 ---
 created: 2026-04-17
-status: draft
+status: approved
 type: feature
 size: L
 ---
@@ -55,7 +55,7 @@ size: L
 - [ ] Каждое поле настраивается: тип, label, placeholder, обязательность.
 - [ ] Поля и шаги переупорядочиваются кнопками ↑ / ↓.
 - [ ] Нельзя сохранить шаблон без хотя бы одного шага и одного поля в нём.
-- [ ] В каждом шаблоне обязательно присутствует поле "Company Name" (required, тип text).
+- [ ] При создании шаблона поле "Company Name" добавляется автоматически и не может быть удалено (кнопка Delete для него скрыта).
 - [ ] "Copy Link" копирует `[NEXTAUTH_URL]/onboarding/[templateId]` в буфер.
 - [ ] Delete показывает confirm-диалог; после подтверждения шаблон удалён из списка.
 - [ ] Клиент открывает `/onboarding/[templateId]`, видит форму по структуре шаблона, заполняет и отправляет.
@@ -70,6 +70,7 @@ size: L
 - Автосохранение только через localStorage (без бэкенда). Если localStorage недоступен — форма работает без сохранения, ошибка не показывается.
 - Проект не в продакшне — обратная совместимость не нужна. Старые данные (Merchant, OnboardingToken) удаляются при миграции.
 - Drag-and-drop не реализуем — только кнопки ↑/↓.
+- Поддерживаемые типы полей v1: text, email, url, number, textarea, file, checkbox. SELECT и RADIO — не реализуем.
 
 ## Риски
 
@@ -80,12 +81,14 @@ size: L
 ## Технические решения
 
 - `FormSubmission + FieldResponse` заменяет `Merchant` как центральную сущность онбординга. Модель `Merchant` сохраняется в схеме для будущей генерации документов, но форма её больше не заполняет напрямую.
-- URL шаблона: `/onboarding/[templateId]` — используется cuid, без slug.
-- `OnboardingToken` удаляется полностью.
-- "Company Name" — обязательное поле в каждом шаблоне, используется как заголовок строки в дашборде.
+- URL шаблона: `/onboarding/[templateId]` — cuid, без slug (проще реализация, нет коллизий).
+- `OnboardingToken` удаляется полностью. Старые `/onboarding/[token]` URLs возвращают "This link is no longer available".
+- **Company Name** — обязательное поле в каждом шаблоне. Создаётся автоматически при создании шаблона и не может быть удалено (кнопка Delete для этого поля скрыта в редакторе). Используется как заголовок строки в дашборде.
+- **Детальная страница:** запрашивает `FormSubmission` вместе с `template.steps[].fields[]` и всеми `FieldResponse`. Рендерит поля итерацией по шагам шаблона. Если `FormField` был удалён после отправки — соответствующий `FieldResponse` пропускается (orphan не рендерится). Файловые поля отображаются как ссылки для скачивания (JSON в `value`: `{url, mimeType, size}`).
+- **Миграция:** (1) Добавить таблицы FormTemplate, FormStep, FormField, FormSubmission, FieldResponse. (2) Удалить таблицу OnboardingToken. (3) Существующие Merchant/User/Contact записи не трогаем — они остаются в БД, но дашборд переключается на показ FormSubmission. (4) Сеед: создать дефолтный шаблон, повторяющий текущую форму.
 - Автосохранение — localStorage, ключ: `form-draft-[templateId]`.
 - `CreateLinkButton` → кнопка-ссылка на `/dashboard/templates`.
-- Поддерживаемые типы полей: text, email, url, number, textarea, file, checkbox.
+- `FormSubmission` хранит `email` клиента для идентификации. User не создаётся автоматически. Rate limiting: 5 отправок с одного IP в час.
 
 ## Тестирование
 

@@ -1,0 +1,452 @@
+# Interview Plan for Feature Planning
+#
+# Tracks progress of adaptive discovery interview for a new feature/bug/refactoring.
+# Updated after EACH user response with scoring, values, and remaining gaps.
+#
+# Scoring: 0-100% (how well we understand this aspect)
+# Status: pending → partial → complete
+# Required: true = must reach threshold, false = cover if relevant
+
+# ============================================================================
+# Interview Metadata (Session Recovery)
+# ============================================================================
+interview_metadata:
+  started: "2026-04-17 00:00:00"
+  last_updated: "2026-04-17 00:00:00"
+  status: "in_progress"
+  can_resume: true
+  current_question_num: 1
+  feature_size: "L"  # dynamic form builder + templates + link system = large
+
+# ============================================================================
+# Conversation History (for session recovery)
+# ============================================================================
+# Preserves complete Q&A. Update after EVERY user response.
+#
+conversation_history:
+  - question_num: 7
+    timestamp: "2026-04-17"
+    topic: "edge_cases, error_scenarios, ui_ux_requirements"
+    agent_question: |
+      1. Удаление шаблона с заявками — какой вариант?
+      2. Что видит клиент если шаблон удалён?
+      3. Навигация — как попасть в Templates?
+    user_answer: |
+      1. Вариант В: простой confirm без счётчика, шаблон удаляется, заявки остаются.
+      2. Да, страница "This link is no longer available".
+      3. Кнопку "Create Link" переименовать в "Templates" → ведёт на /dashboard/templates.
+    summary: "Delete: simple confirm, submissions remain. Deleted template → error page. Navigation: rename Create Link button to Templates."
+  - question_num: 6
+    timestamp: "2026-04-17"
+    topic: "user_stories, ui_ux_requirements, technical_decisions"
+    agent_question: |
+      1. Что в дашборде после заполнения?
+      2. Детальная страница — статус нужен?
+      3. Автосохранение черновика?
+      4. Страница шаблонов — отдельный раздел?
+    user_answer: |
+      1. Дашборд оставляем как есть (таблица со статусами). Цель — собрать данные.
+      2. Да, статус нужен на детальной странице.
+      3. Если не трудозатратно — делаем. Если трудозатратно — нет.
+      4. Отдельный раздел.
+    summary: "Dashboard with status table stays. Status management on detail page. Autosave: implement with localStorage (free). Separate /dashboard/templates page."
+  - question_num: 5
+    timestamp: "2026-04-17"
+    topic: "technical_decisions, data_requirements, ui_ux_requirements"
+    agent_question: |
+      1. Архитектура хранения: Merchant или FormSubmission?
+      2. Как идентифицировать заявку в дашборде?
+      3. Редактор шаблона — drag-and-drop или кнопки?
+      4. URL шаблона — slug или ID?
+    user_answer: |
+      1. Данные попадают в БД. Планируется генерация документов — данные должны быть доступны для этого.
+      2. Название компании будет всегда — обязательное поле в каждом шаблоне.
+      3. Кнопок вверх/вниз достаточно.
+      4. Не указывать название шаблона в URL — использовать ID.
+    summary: "Data must be stored for future document generation. Company name is always required. Up/down buttons for reordering. Template URL uses ID, not slug."
+  - question_num: 4
+    timestamp: "2026-04-17"
+    topic: "success_criteria, constraints, testing_strategy"
+    agent_question: |
+      1. Критерии успеха фичи?
+      2. Ограничения?
+      3. Подход к тестированию?
+    user_answer: |
+      1. Создать шаблон, скопировать ссылку, отправить клиенту, клиент заполняет, данные в дашборде. Плюс список шаблонов с возможностью удалить.
+      2. Никаких. Проект на стадии создания, никто не пользуется.
+      3. Да, ручная проверка полного цикла устраивает.
+    summary: "Success = full cycle works + template list with delete. No constraints. Manual QA only."
+  - question_num: 3
+    timestamp: "2026-04-17"
+    topic: "feature_description, technical_decisions, migration_needs"
+    agent_question: |
+      1. Редактирование шаблона и старые заявки
+      2. Существующие заявки и токены
+      3. Удаление шаблона — что происходит с заявками?
+      4. Права доступа — один admin или несколько?
+    user_answer: |
+      1. Да, новые поля просто не показываются в старых заявках.
+      2. Старые заявки (существующие merchants) можно удалить при миграции.
+      3. Удаление шаблона не влечёт последствий для данных клиента. Ссылка используется многократно — разными клиентами. Не интересует счётчик заявок. Цель формы — попадание данных во внутренние таблицы.
+      4. Только один admin. created_by не нужен.
+    summary: "Template link is permanent and reusable by multiple clients. Each submission creates a new merchant record. Deleting template = link stops working, client data stays. Old merchants data can be deleted during migration. Single admin only."
+  - question_num: 2
+    timestamp: "2026-04-17"
+    topic: "user_stories, technical_decisions, ui_ux_requirements"
+    agent_question: |
+      1. Ссылка — одна на шаблон или несколько?
+      2. Конструктор шаблона — что настраивать?
+      3. Список шаблонов — что отображать?
+      4. Что происходит с заявками при изменении шаблона?
+    user_answer: |
+      1. Везде постоянные ссылки. Если нужна ссылка под конкретного клиента — создаём новый шаблон, потом можно удалить.
+      2. Всё как предложено: название + поля (тип, название, обязательность, placeholder) + шаги/блоки.
+      3. Название, дата создания, кнопки: Edit, Copy Link, Delete (с подтверждением). Без количества полей и заявок.
+      4. Ответ не получен (пропущен).
+    summary: "Permanent links only — one per template. No single-use tokens. Template builder: name + fields + steps. List: name + date + actions. Template versioning/edit behavior TBD."
+  - question_num: 1
+    timestamp: "2026-04-17"
+    topic: "feature_description, user_problem, user_stories"
+    agent_question: |
+      1. Шаблоны форм — насколько они различаются?
+      2. Постоянные ссылки — что ты имеешь в виду?
+      3. Флоу через кнопку "Создать ссылку"
+      4. Текущая форма — сохранить как дефолтный шаблон?
+    user_answer: |
+      1. Могут быть шаблоны под онлайн-платформы, под момент продажи, под этап онбординга.
+      2. По кнопке открывается страница шаблонов со списком. У каждого шаблона — кнопка "Скопировать ссылку". Кнопка "Создать новый шаблон".
+      3. Да — дефолтный шаблон из текущей формы.
+      4. Весь интерфейс должен быть на английском.
+    summary: "Templates are purpose-based (use-case). Links are permanent per template (copy link = reusable). Flow: Create Link button → template list page. Default template from current form. Admin UI in English."
+# Format:
+# - question_num: 1
+#   timestamp: "2025-11-12 15:20:33"
+#   topic: "user_problem"
+#   agent_question: |
+#     [Full question text]
+#   user_answer: |
+#     [Full answer text]
+#   summary: "Brief summary"
+
+# ============================================================================
+# Phase 1: High-Level Feature Understanding
+# ============================================================================
+# Interview Cycle 1 scope
+phase1_feature_overview:
+
+  feature_name:
+    score: 95
+    status: "complete"
+    value: "form-builder"
+    gaps: ""
+    required: true
+
+  feature_description:
+    score: 92
+    status: "complete"
+    value: "Admin manages form templates (create, edit, delete). Each template has a permanent reusable link — multiple clients fill the same URL, each submission creates a new merchant record. Template list page accessible via 'Create Link' button on dashboard. Template builder: name + steps/blocks + fields (type, label, placeholder, required). Default template seeded from current static form. OnboardingToken system removed. Existing merchant data can be cleared during migration. Single admin, no multi-user concerns."
+    gaps: ""
+    required: true
+
+  work_type:
+    score: 95
+    status: "complete"
+    value: "feature"
+    gaps: ""
+    required: true
+
+  user_problem:
+    score: 90
+    status: "complete"
+    value: "Form fields are hardcoded — admin cannot adapt them without a code deploy. Different use cases (online platforms, sales moment, onboarding stage) need different field sets. Single-use token links are inconvenient — admin needs a permanent reusable link per use case. Templates solve both: admin configures fields once, gets a permanent link, sends to any number of clients."
+    gaps: ""
+    required: true
+
+  target_users:
+    score: 0
+    status: "pending"
+    value: ""
+    gaps: "Who specifically will use this"
+    required: false
+
+  success_criteria:
+    score: 90
+    status: "complete"
+    value: "Admin can create template, copy link, client fills form via that link, submission appears in dashboard. Template list shows all templates with delete action."
+    gaps: ""
+    required: true
+
+  constraints:
+    score: 90
+    status: "complete"
+    value: "No constraints. Project is in active development, no production users. English-only admin UI."
+    gaps: ""
+    required: true
+
+  testing_strategy:
+    score: 90
+    status: "complete"
+    value: "No automated tests. Manual end-to-end verification: create template → copy link → open as client → fill form → verify submission in dashboard."
+    gaps: ""
+    required: true
+
+# ============================================================================
+# Phase 2: User Experience & Scenarios
+# ============================================================================
+# Interview Cycle 2 scope (together with Phase 3)
+phase2_user_experience:
+
+  user_stories:
+    score: 90
+    status: "complete"
+    value: |
+      Admin flow: Dashboard → click "Templates" button → /dashboard/templates (list) → "Create New Template" → enter name + add steps + add fields per step → save → copy link.
+      Admin edit: Templates list → Edit → modify steps/fields (add/remove/reorder with up/down) → save.
+      Admin delete: Templates list → Delete → confirm dialog → template removed, submissions stay.
+      Client flow: Opens /onboarding/[templateId] → fills multi-step form (EN/RU toggle) → submits → success page.
+      Client resume: Opens same link after closing → form pre-filled from localStorage.
+      Deleted template: Client opens link → "This link is no longer available" page.
+    gaps: ""
+    required: true
+
+  acceptance_criteria:
+    score: 88
+    status: "complete"
+    value: |
+      1. Template list page exists at /dashboard/templates showing all templates with name, creation date, Edit/Copy Link/Delete buttons.
+      2. "Templates" button on dashboard navigates to /dashboard/templates.
+      3. Admin can create a template: enter name, add steps, add fields (type, label, placeholder, required). Company name field is always required.
+      4. Each template has a permanent copyable link: /onboarding/[templateId].
+      5. Admin can edit template fields (type/label/placeholder/required/order via up-down buttons).
+      6. Admin can delete template with confirm dialog. Existing submissions remain in dashboard.
+      7. Client opens template link, fills form, submits. Submission appears in dashboard table.
+      8. Dashboard shows submissions: company name, template name, date, status.
+      9. Admin can change submission status on detail page (NEW → IN_REVIEW → APPROVED/REJECTED).
+      10. Detail page shows all field responses for a submission.
+      11. Form autosaves to localStorage; on re-open link, fields are pre-filled.
+      12. Opening deleted template URL shows "This link is no longer available".
+      13. All admin UI text is in English.
+    gaps: ""
+    required: true
+
+  edge_cases:
+    score: 87
+    status: "complete"
+    value: |
+      - Template deleted while client has it open: submit fails, show error.
+      - Template edited after submissions: old submissions display their original answers, new fields don't appear for old records.
+      - Company name field: always present, always required — template creation must enforce this.
+      - Multiple clients submit same template simultaneously: each creates independent submission.
+      - Client submits same template twice from same browser: localStorage cleared after submit, second fill is a new submission.
+    gaps: ""
+    required: true
+
+  error_scenarios:
+    score: 87
+    status: "complete"
+    value: |
+      - Template not found / deleted: public form shows "This link is no longer available" page.
+      - Submission fails (network error): show inline error, form data preserved, allow retry.
+      - Required field missing: client-side validation blocks submit, field highlighted.
+      - File upload fails: show error on field, allow re-upload.
+      - Admin tries to save template with no steps: validation error "Add at least one step".
+      - Admin tries to save template with no fields in a step: validation error "Each step must have at least one field".
+    gaps: ""
+    required: true
+
+  verification_strategy:
+    score: 90
+    status: "complete"
+    value: "Manual end-to-end: create template → copy link → open as client → fill form → submit → check submission in dashboard → open detail → change status. Also: test delete flow, test deleted-template URL, test localStorage resume."
+    gaps: ""
+    required: true
+
+  ui_ux_requirements:
+    score: 88
+    status: "complete"
+    value: |
+      Admin UI: English only. Template list: table with name, date, 3 action buttons. Template editor: name input + steps list + fields per step (inline add, up/down reorder, delete). Field editor: type dropdown, label, placeholder, required toggle. Public form: existing multi-step UI with progress bar, EN/RU toggle, mobile-adaptive (unchanged pattern). Success page after submit. "This link is no longer available" error page.
+    gaps: ""
+    required: false
+
+  risks:
+    score: 85
+    status: "complete"
+    value: |
+      - Schema migration removes Merchant model as primary entity — significant refactor of dashboard and detail page rendering.
+      - Detail page currently hardcodes field rendering — must become dynamic from FieldResponse.
+      - Old merchant data in DB: user confirmed it can be deleted during migration.
+      - Autosave via localStorage: edge case where localStorage is full or disabled — fail silently.
+    gaps: ""
+    required: true
+
+  technical_decisions:
+    score: 90
+    status: "complete"
+    value: |
+      - FormSubmission + FieldResponse replaces Merchant as central submission entity. Merchant model kept for future document generation mapping.
+      - Company name: required field in every template, used as display name in dashboard.
+      - Template URL: /onboarding/[templateId] — no slug, uses cuid.
+      - Autosave: localStorage only, no backend. Keyed by templateId.
+      - Field reordering: up/down buttons (no drag-and-drop).
+      - OnboardingToken system: removed entirely.
+      - Old merchant data: cleared during migration.
+    gaps: ""
+    required: false
+
+  deploy_approach:
+    score: 90
+    status: "complete"
+    value: "Standard Railway deploy: push to main → auto-deploy. Requires Prisma migration to run on deploy (prisma migrate deploy in Dockerfile or build step). No new env vars needed."
+    gaps: ""
+    required: false
+
+  manual_user_actions:
+    score: 90
+    status: "complete"
+    value: "None. All infrastructure already exists. Admin just needs to create templates in the UI after deploy."
+    gaps: ""
+    required: false
+
+# ============================================================================
+# Phase 3: Integration & Technical Context
+# ============================================================================
+# Interview Cycle 2 scope (together with Phase 2)
+phase3_integration:
+
+  integration_points:
+    score: 90
+    status: "complete"
+    value: |
+      - Replaces CreateLinkButton component → "Templates" navigation button.
+      - New route group: /dashboard/templates (list + create + edit pages).
+      - New public route: /onboarding/[templateId] (replaces /onboarding/[token]).
+      - Dashboard table shows FormSubmissions instead of Merchants.
+      - Merchant detail page → Submission detail page with dynamic FieldResponse rendering.
+      - API: new /api/templates/* (admin CRUD) + /api/onboarding/[templateId]/submit (public).
+      - Middleware: add new public routes to allowlist.
+    gaps: ""
+    required: true
+
+  dependencies:
+    score: 90
+    status: "complete"
+    value: "NextAuth (auth unchanged), Prisma (new models added), Supabase Storage (file uploads same pattern), rate-limit utility (reused for public submit endpoint), Zod (validation schemas)."
+    gaps: ""
+    required: false
+
+  technical_constraints:
+    score: 85
+    status: "complete"
+    value: "No new external services. Prisma migration must run on deploy. No performance concerns at current scale (single admin, small submission volume)."
+    gaps: ""
+    required: false
+
+  data_requirements:
+    score: 90
+    status: "complete"
+    value: |
+      New models: FormTemplate (id, name, createdAt), FormStep (templateId, title, order), FormField (stepId, label, fieldKey, type, placeholder, required, order), FormSubmission (templateId, status, createdAt), FieldResponse (submissionId, fieldId, value JSON).
+      Remove: OnboardingToken model.
+      Keep: User, Merchant (simplified, for future doc generation), Contact, Document, Address, BankAccount — but no longer populated by onboarding form directly.
+      Field types: text, email, url, number, textarea, file, checkbox.
+      File responses stored as JSON: { url, mimeType, size }.
+    gaps: ""
+    required: false
+
+  migration_needs:
+    score: 88
+    status: "complete"
+    value: |
+      - Drop OnboardingToken table.
+      - Existing Merchant/User data: can be deleted (user confirmed, project not in production).
+      - Add new tables via Prisma migration.
+      - Seed default template mirroring current 4-step form (company name, website, payment URLs, services, contact name, email, telegram, project age, chargeback rate, refund rate, privacy policy URL, terms URL, refund policy URL, logo file).
+    gaps: ""
+    required: false
+
+# ============================================================================
+# Phase 4: Completion
+# ============================================================================
+phase4_completion:
+  userspec_file: ""  # work/{feature}/user-spec.md
+  status: "pending"  # pending | created | approved
+
+# ============================================================================
+# Decision Rules
+# ============================================================================
+decision_rules:
+
+  required_threshold: 85
+  optional_threshold: 50
+
+  # Stop criteria (BOTH must be true to exit a cycle)
+  stop_criteria:
+    - "All required items in current cycle scope score >= 85%"
+    - "Structural: every required item has non-empty value, no TBD, gaps empty or conscious limitations"
+
+  priority_order:
+    - "Required items with score < 85% (lowest score first)"
+    - "Optional items mentioned by user in context"
+    - "Other optional items if user seems knowledgeable"
+
+  question_strategy:
+    - "3-4 questions per batch about different gaps"
+    - "Run as many batches as needed — batch size is NOT cycle limit"
+    - "Propose solutions based on PK, not just ask questions"
+    - "Challenge with substance: counterexamples, code references, unexplored scenarios"
+    - "After each response: update scores, values, gaps, conversation_history, save"
+
+# ============================================================================
+# Interview Progress
+# ============================================================================
+progress:
+  current_phase: "phase1_feature_overview"
+  questions_asked: 0
+  last_question: ""
+  total_required_score: 0
+  total_optional_score: 0
+  completion_estimate: "0%"
+  user_detail_level: "unknown"  # brief | moderate | detailed
+
+# ============================================================================
+# Notes
+# ============================================================================
+notes: |
+  Free-form notes:
+  - Important insights
+  - Areas of uncertainty
+  - Pivot points
+  - Scope changes
+
+# ============================================================================
+# USAGE INSTRUCTIONS
+# ============================================================================
+#
+# 1. INIT: Created by init-feature-folder.sh at work/{feature}/logs/userspec/interview.yml
+#    Set metadata.started, metadata.status: in_progress
+#
+# 2. INITIAL SCORING: After user's free-form description, score ALL items
+#    Detailed 80-95%, brief 50-70%, vague 20-40%, not mentioned 0%
+#
+# 3. INTERVIEW LOOP (save after EVERY response):
+#    a) Find required items with score < 85% in current cycle scope
+#    b) Ask 3-4 questions about different gaps
+#    c) Propose solutions based on PK
+#    d) User answers
+#    e) Update: conversation_history, scores, values, gaps, metadata
+#    f) Save immediately
+#    g) Check stop criteria (score >= 85% AND structural: value filled, no TBD, gaps resolved)
+#    h) Not done → repeat. Done → next cycle.
+#
+# 4. CYCLES:
+#    Cycle 1: phase1_feature_overview items
+#    Cycle 2: phase2_user_experience + phase3_integration items
+#    Cycle 3: ALL items still below threshold (cleanup pass)
+#
+# 5. RESUME: If metadata.status is "in_progress"
+#    Load, show conversation summary, resume from current state
+#
+# 6. COMPLETION: After user approves user-spec.md
+#    Set phase4_completion.status: approved
+#    Set metadata.status: completed

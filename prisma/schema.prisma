@@ -162,15 +162,88 @@ model Contact {
   @@map("contacts")
 }
 
-model OnboardingToken {
-  id        String    @id @default(cuid())
-  token     String    @unique @default(cuid())
-  createdBy String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+model FormTemplate {
+  id          String           @id @default(cuid())
+  name        String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  steps       FormStep[]
+  submissions FormSubmission[]
 
-  @@map("onboarding_tokens")
+  @@map("form_templates")
+}
+
+model FormStep {
+  id         String       @id @default(cuid())
+  templateId String
+  title      String
+  order      Int
+  template   FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  fields     FormField[]
+
+  @@unique([templateId, order])
+  @@map("form_steps")
+}
+
+model FormField {
+  id          String        @id @default(cuid())
+  stepId      String
+  label       String
+  fieldKey    String        // URL-safe key, used in localStorage and value mapping
+  type        FieldType
+  placeholder String?
+  required    Boolean       @default(true)
+  isProtected Boolean       @default(false)
+  order       Int
+  step        FormStep      @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  responses   FieldResponse[]
+
+  @@unique([stepId, order])
+  @@map("form_fields")
+}
+
+model FormSubmission {
+  id           String           @id @default(cuid())
+  templateId   String?          // nullable: set to null when template deleted (SetNull)
+  templateName String           // snapshot of template.name at submit time
+  companyName  String           // extracted from Company Name field at submit time
+  email        String?          // nullable: extracted from first EMAIL field if present
+  status       SubmissionStatus @default(NEW)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  template     FormTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  responses    FieldResponse[]
+
+  @@map("form_submissions")
+}
+
+model FieldResponse {
+  id           String         @id @default(cuid())
+  submissionId String
+  fieldId      String?        // nullable: set to null when field deleted (SetNull)
+  fieldLabel   String         // snapshot of field.label at submit time
+  value        String         @db.Text
+  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  field        FormField?     @relation(fields: [fieldId], references: [id], onDelete: SetNull)
+
+  @@map("field_responses")
+}
+
+enum FieldType {
+  TEXT
+  EMAIL
+  URL
+  NUMBER
+  TEXTAREA
+  FILE
+  CHECKBOX
+}
+
+enum SubmissionStatus {
+  NEW
+  IN_REVIEW
+  APPROVED
+  REJECTED
 }
 
 enum Role {

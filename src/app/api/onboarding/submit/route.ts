@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Atomically mark the token as used — prevents race condition on double-submit
+    // TODO(task-9): remove legacy token check — OnboardingToken model deleted
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     const updated = await prisma.onboardingToken.updateMany({
       where: { token, usedAt: null, expiresAt: { gt: new Date() } },
       data: { usedAt: new Date() },

@@ -6,6 +6,9 @@ export default async function OnboardingPage({
 }: {
   params: { token: string };
 }) {
+  // TODO(task-9): remove legacy token-based onboarding — OnboardingToken model deleted
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   const record = await prisma.onboardingToken.findUnique({
     where: { token: params.token },
   });

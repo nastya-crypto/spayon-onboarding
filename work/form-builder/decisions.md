@@ -26,6 +26,27 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 
 ---
 
+## Task 2: Template management API
+
+**Status:** Done
+**Commit:** 61bb1ab, fixes: 108ff69
+**Agent:** main agent
+**Summary:** GET/POST /api/templates and GET/PATCH/DELETE /api/templates/[id] with ADMIN auth guard. POST auto-prepends Company Name protected field. PATCH uses interactive Prisma transaction for full-replacement. buildZodSchema utility created for Task 3. GET list returns both step count and field count (computed from nested step._count.fields).
+**Deviations:** None
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: 8 findings → [logs/working/task-2/code-reviewer-1.json](logs/working/task-2/code-reviewer-1.json)
+- security-auditor: 8 findings (approved) → [logs/working/task-2/security-auditor-1.json](logs/working/task-2/security-auditor-1.json)
+- test-reviewer: 9 findings → [logs/working/task-2/test-reviewer-1.json](logs/working/task-2/test-reviewer-1.json)
+
+**Verification:**
+- `npx jest src/__tests__/api/templates.test.ts src/__tests__/lib/form-validation.test.ts` → 17 passed
+- `npx tsc --noEmit` → 0 errors
+
+---
+
 ## Task 4: Submissions API
 
 **Status:** Done

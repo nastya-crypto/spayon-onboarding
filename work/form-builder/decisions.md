@@ -26,6 +26,27 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 
 ---
 
+## Task 4: Submissions API
+
+**Status:** Done
+**Commit:** 61bb1ab (fixes: post-review commit pending)
+**Agent:** main agent
+**Summary:** Three admin-only routes: GET list (email excluded via Prisma select), GET detail (orphans included), PATCH status with `VALID_TRANSITIONS` guard. All use `getServerSession` pattern. 21 tests pass.
+**Deviations:** None
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: 4 findings (low/info) → [logs/working/task-4/code-reviewer-1.json](logs/working/task-4/code-reviewer-1.json)
+- security-auditor: 5 findings (low/info) → [logs/working/task-4/security-auditor-1.json](logs/working/task-4/security-auditor-1.json)
+- test-reviewer: 5 findings (low/info) → [logs/working/task-4/test-reviewer-1.json](logs/working/task-4/test-reviewer-1.json)
+
+**Verification:**
+- `npx jest src/__tests__/api/submissions/` → 21 passed
+- `npx tsc --noEmit` → 0 errors
+
+---
+
 <!-- Entries are added by agents as tasks are completed.
 
 Format is strict — use only these sections, do not add others.

@@ -149,7 +149,7 @@ describe("PATCH /api/submissions/[id]/status", () => {
 
   it("test_patch_status_unknown_value — unknown status returns 400", async () => {
     mockGetSession.mockResolvedValue({ user: { role: "ADMIN" } });
-    mockFindUnique.mockResolvedValue({ id: "sub-1", status: "NEW" });
+    // Validation rejects unknown status before any DB lookup
 
     const { PATCH } = await import("@/app/api/submissions/[id]/status/route");
     const req = new Request("http://localhost/api/submissions/sub-1/status", {
@@ -162,6 +162,7 @@ describe("PATCH /api/submissions/[id]/status", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toBeDefined();
+    expect(mockFindUnique).not.toHaveBeenCalled();
   });
 
   it("APPROVED→anything returns 400 (terminal state)", async () => {

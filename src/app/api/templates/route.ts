@@ -46,12 +46,18 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const templates = await prisma.formTemplate.findMany({
+  const raw = await prisma.formTemplate.findMany({
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { steps: true } },
+      steps: { include: { _count: { select: { fields: true } } } },
     },
   });
+
+  const templates = raw.map(({ steps, ...t }) => ({
+    ...t,
+    fieldCount: steps.reduce((sum, s) => sum + s._count.fields, 0),
+  }));
 
   return NextResponse.json({ templates });
 }

@@ -57,10 +57,39 @@ describe("GET /api/templates — wrong role", () => {
   });
 });
 
+describe("GET /api/templates — success", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("returns 200 with templates array including step and field counts", async () => {
+    mockSession.mockResolvedValue(adminSession);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "tpl-1",
+        name: "Standard Onboarding",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        _count: { steps: 2 },
+        steps: [
+          { _count: { fields: 3 } },
+          { _count: { fields: 2 } },
+        ],
+      },
+    ]);
+
+    const { GET } = await import("@/app/api/templates/route");
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.templates).toHaveLength(1);
+    expect(data.templates[0].fieldCount).toBe(5);
+    expect(data.templates[0]).not.toHaveProperty("steps"); // steps stripped from list view
+  });
+});
+
 describe("POST /api/templates — happy path", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("returns 201 and response contains auto-inserted Company Name field as first field of first step", async () => {
+  it("returns 201 and prisma.create is called with Company Name as first field of first step", async () => {
     mockSession.mockResolvedValue(adminSession);
     const createdTemplate = {
       id: "tpl-1",
@@ -73,24 +102,8 @@ describe("POST /api/templates — happy path", () => {
           title: "Step 1",
           order: 0,
           fields: [
-            {
-              id: "f-0",
-              label: "Company Name",
-              fieldKey: "company-name",
-              type: "TEXT",
-              isProtected: true,
-              required: true,
-              order: 0,
-            },
-            {
-              id: "f-1",
-              label: "Website",
-              fieldKey: "website",
-              type: "URL",
-              isProtected: false,
-              required: false,
-              order: 1,
-            },
+            { id: "f-0", label: "Company Name", fieldKey: "company-name", type: "TEXT", isProtected: true, required: true, order: 0 },
+            { id: "f-1", label: "Website", fieldKey: "website", type: "URL", isProtected: false, required: false, order: 1 },
           ],
         },
       ],
@@ -110,10 +123,12 @@ describe("POST /api/templates — happy path", () => {
     const res = await POST(req);
     expect(res.status).toBe(201);
 
-    const data = await res.json();
-    const firstField = data.steps[0].fields[0];
-    expect(firstField.label).toBe("Company Name");
-    expect(firstField.isProtected).toBe(true);
+    // Verify Company Name was prepended in the data passed to prisma.create
+    const createCall = mockCreate.mock.calls[0][0];
+    const firstStepFields = createCall.data.steps.create[0].fields.create;
+    expect(firstStepFields[0].label).toBe("Company Name");
+    expect(firstStepFields[0].isProtected).toBe(true);
+    expect(firstStepFields[0].order).toBe(0);
   });
 });
 
@@ -183,6 +198,8 @@ describe("PATCH /api/templates/[id] — protected field removal", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toContain("Company Name field cannot be removed");
+    // Transaction must NOT have been called — guard rejects before mutation
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 });
 

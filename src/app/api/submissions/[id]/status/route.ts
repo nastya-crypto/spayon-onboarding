@@ -25,7 +25,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await req.json()) as { status?: string };
+  let body: { status?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { status } = body;
 
   const validStatuses = Object.values(SubmissionStatus) as string[];
@@ -43,7 +48,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const allowedTransitions = VALID_TRANSITIONS[submission.status as SubmissionStatus];
+  const allowedTransitions = VALID_TRANSITIONS[submission.status];
   if (!allowedTransitions.includes(newStatus)) {
     return NextResponse.json(
       {

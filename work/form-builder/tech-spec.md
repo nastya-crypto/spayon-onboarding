@@ -1,6 +1,6 @@
 ---
 created: 2026-04-17
-status: draft
+status: approved
 branch: main
 size: L
 ---
@@ -100,7 +100,7 @@ Dashboard fetches `FormSubmission` list ordered by `createdAt DESC`. Table shows
 **Alternatives considered:** `/api/onboarding/submit` (keep existing path) — contradicts removal of OnboardingToken system; separate `/api/forms/submit` — unnecessary indirection.
 
 ### Decision 6: File uploads to Supabase Storage bucket `form-uploads`
-**Decision:** File field responses uploaded to Supabase Storage bucket `form-uploads`, path: `{submissionId}/{fieldId}-{timestamp}-{sanitizedFilename}`. URL stored as JSON `{url, mimeType, size}` in `FieldResponse.value`. Allowed MIME types: `image/jpeg`, `image/png`, `application/pdf` (SVG excluded — can carry inline JS, unsafe when served directly). Max file size: 10 MB enforced server-side before upload. Filename sanitized: `name.replace(/[^a-zA-Z0-9._-]/g, '_')` (same pattern as existing logo upload in `src/app/api/onboarding/submit/route.ts`). These are **formal requirements** — Task 3 must enforce all three at the submit endpoint. **Bucket visibility: public vs. signed URLs** — public bucket is simpler but exposes merchant documents to anyone with a URL; signed URLs require generating expiring tokens on each detail page load. → [PENDING USER APPROVAL]
+**Decision:** File field responses uploaded to Supabase Storage bucket `form-uploads`, path: `{submissionId}/{fieldId}-{timestamp}-{sanitizedFilename}`. URL stored as JSON `{url, mimeType, size}` in `FieldResponse.value`. Allowed MIME types: `image/jpeg`, `image/png`, `application/pdf` (SVG excluded — can carry inline JS, unsafe when served directly). Max file size: 10 MB enforced server-side before upload. Filename sanitized: `name.replace(/[^a-zA-Z0-9._-]/g, '_')` (same pattern as existing logo upload in `src/app/api/onboarding/submit/route.ts`). These are **formal requirements** — Task 3 must enforce all three at the submit endpoint. **Bucket visibility: public** — `form-uploads` bucket is public; signed URLs can be added later if needed. → [USER APPROVED]
 **Rationale:** Supports US file field type. Separates from existing `logos` bucket. Upload pattern reused from `src/app/api/onboarding/submit/route.ts`.
 **Alternatives considered:** Inline base64 — impractical for files up to 10 MB. Reusing `logos` bucket — mixes concerns, complicates access control.
 
@@ -291,10 +291,10 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 ## User-Spec Deviations
 
 - **Added: `form-uploads` Supabase Storage bucket** (not mentioned in user-spec). Reason: FILE-type fields need a storage location; separating from `logos` bucket is standard practice. → [TECHNICAL]
-- **Bucket visibility: public vs signed URLs** — not specified in user-spec. Public bucket is simpler; signed URLs protect confidential merchant documents from URL guessing. → [PENDING USER APPROVAL]
+- **Bucket visibility: public** — `form-uploads` bucket is public. Signed URLs deferred to future iteration. → [USER APPROVED]
 - **Added: `fieldKey` on FormField** (not in user-spec). Reason: stable machine-readable key for localStorage draft mapping and future document generation placeholders (`{{fieldKey}}`). Auto-generated from label (kebab-case). → [TECHNICAL]
 - **Added: `isProtected` flag on FormField** (not in user-spec, implied by "Company Name cannot be deleted"). Reason: enforces the invariant at data layer and API layer, not just UI layer. → [TECHNICAL]
-- **Orphan FieldResponse rendering** — user-spec says "orphan responses are skipped". Tech-spec renders them using the `fieldLabel` snapshot (fieldId = null after field deletion). Reason: admin should see all data the client submitted, even for fields that were later removed. Snapshots make this possible at zero extra cost. → [PENDING USER APPROVAL]
+- **Orphan FieldResponse rendering** — user-spec says "orphan responses are skipped". Tech-spec renders them using the `fieldLabel` snapshot (fieldId = null after field deletion). Reason: admin should see all data the client submitted, even for fields that were later removed. → [USER APPROVED]
 - **PATCH template strategy** — user-spec describes editing fields/steps but doesn't specify the API contract. Tech-spec uses full-replacement PATCH: `PATCH /api/templates/[id]` accepts `{name, steps: [{title, fields: [...]}]}` and replaces all steps/fields atomically (delete old + insert new in a transaction). Existing FieldResponse records are unaffected (SetNull on fieldId). → [TECHNICAL]
 - **FILE upload restrictions** — user-spec mentions file field type but doesn't specify limits. Tech-spec: allowed MIME types (JPEG, PNG, PDF — SVG excluded due to XSS risk), max 10 MB. → [TECHNICAL]
 - **`email` nullable on FormSubmission** — user-spec says email is stored for identification but doesn't mandate it in every template. Tech-spec makes `email String?`. Extracted from first EMAIL-type field if present. → [TECHNICAL]

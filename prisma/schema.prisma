@@ -193,7 +193,7 @@ model FormField {
   type        FieldType
   placeholder String?
   required    Boolean       @default(true)
-  isProtected Boolean       @default(false)
+  isProtected Boolean       @default(false) // true = cannot be deleted (Company Name)
   order       Int
   step        FormStep      @relation(fields: [stepId], references: [id], onDelete: Cascade)
   responses   FieldResponse[]

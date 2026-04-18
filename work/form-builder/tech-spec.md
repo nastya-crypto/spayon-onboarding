@@ -329,7 +329,7 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 - **Description:** Implement admin CRUD for form templates. All routes must verify `session.user.role === 'ADMIN'` (Decision 9). PATCH uses full-replacement strategy (Decision — PATCH template strategy in User-Spec Deviations). All text inputs validated with Zod `.max()` limits per Decision 10. POST auto-inserts Company Name protected field.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, security-auditor, test-reviewer
-- **Files to modify:** `src/app/api/templates/route.ts` (new), `src/app/api/templates/[id]/route.ts` (new)
+- **Files to modify:** `src/app/api/templates/route.ts` (new), `src/app/api/templates/[id]/route.ts` (new), `src/lib/form-validation.ts` (new — exports `buildZodSchema(fields)`)
 - **Files to read:** `src/app/api/merchants/route.ts`, `src/lib/db.ts`, `src/lib/auth/auth-options.ts`, `work/form-builder/tech-spec.md`
 
 #### Task 3: Public form API

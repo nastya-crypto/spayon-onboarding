@@ -28,6 +28,7 @@ Replace the hardcoded 4-step onboarding form with a dynamic template system. Adm
 **New — API Routes:**
 - `src/app/api/templates/route.ts` — GET list, POST create (admin)
 - `src/app/api/templates/[id]/route.ts` — GET, PATCH, DELETE (admin)
+- `src/app/api/templates/[id]/public/route.ts` — GET template structure (no auth, public)
 - `src/app/api/templates/[id]/submit/route.ts` — POST submit form (public, rate-limited)
 - `src/app/api/submissions/route.ts` — GET list (admin)
 - `src/app/api/submissions/[id]/route.ts` — GET detail (admin)
@@ -94,22 +95,39 @@ Dashboard fetches `FormSubmission` list ordered by `createdAt DESC`. Table shows
 **Alternatives considered:** Hard delete prevention (block DELETE if submissions exist) — contradicts user-spec decision that deletion is unrestricted.
 
 ### Decision 5: Public submit at /api/templates/[id]/submit
-**Decision:** Public submit endpoint lives under template namespace, not a separate /api/forms route.
-**Rationale:** [TECHNICAL] Keeps template-related operations colocated. Rate limit key: `submit:${templateId}:${ip}` — 5 submissions per IP per template per hour, reuses existing `rateLimit()` utility from `src/lib/rate-limit.ts`.
+**Decision:** Public submit endpoint lives under template namespace, not a separate /api/forms route. Rate limit key: `submit:${templateId}:${ip}` — 5 submissions per IP per template per hour, reuses `rateLimit()` from `src/lib/rate-limit.ts`. IP extracted via `req.headers.get('x-forwarded-for')?.split(',')[0] ?? req.ip` (Railway proxies requests, so `x-forwarded-for` carries real client IP).
+**Rationale:** [TECHNICAL] Keeps template-related operations colocated. Handles Railway reverse proxy correctly.
 **Alternatives considered:** `/api/onboarding/submit` (keep existing path) — contradicts removal of OnboardingToken system; separate `/api/forms/submit` — unnecessary indirection.
 
 ### Decision 6: File uploads to Supabase Storage bucket `form-uploads`
-**Decision:** File field responses uploaded to Supabase Storage bucket `form-uploads`, path: `{submissionId}/{fieldId}-{timestamp}-{filename}`. Public URL stored as JSON `{url, mimeType, size}` in `FieldResponse.value`.
-**Rationale:** Supports US file field type. Separates from existing `logos` bucket. Same upload pattern as current `src/lib/supabase.ts`.
-**Alternatives considered:** Inline base64 — impractical for files. Reusing logos bucket — mixes concerns.
+**Decision:** File field responses uploaded to Supabase Storage bucket `form-uploads`, path: `{submissionId}/{fieldId}-{timestamp}-{sanitizedFilename}`. URL stored as JSON `{url, mimeType, size}` in `FieldResponse.value`. Allowed MIME types: `image/jpeg`, `image/png`, `application/pdf` (SVG excluded — can carry inline JS, unsafe when served directly). Max file size: 10 MB enforced server-side before upload. Filename sanitized: `name.replace(/[^a-zA-Z0-9._-]/g, '_')` (same pattern as existing logo upload in `src/app/api/onboarding/submit/route.ts`). These are **formal requirements** — Task 3 must enforce all three at the submit endpoint. **Bucket visibility: public vs. signed URLs** — public bucket is simpler but exposes merchant documents to anyone with a URL; signed URLs require generating expiring tokens on each detail page load. → [PENDING USER APPROVAL]
+**Rationale:** Supports US file field type. Separates from existing `logos` bucket. Upload pattern reused from `src/app/api/onboarding/submit/route.ts`.
+**Alternatives considered:** Inline base64 — impractical for files up to 10 MB. Reusing `logos` bucket — mixes concerns, complicates access control.
 
 ### Decision 7: Middleware updated to allow new public routes
-**Decision:** Add `/onboarding` (already allowed by prefix match) and `/api/templates` public GET + submit patterns to NextAuth middleware allowlist.
-**Rationale:** [TECHNICAL] `/onboarding/[templateId]` is public (no login required). `/api/templates/[id]/submit` is public. All `/api/templates` management routes remain admin-only.
+**Decision:** Exact public paths added to NextAuth middleware allowlist: `GET /api/templates/:id/public` and `POST /api/templates/:id/submit`. The broader `/api/templates` prefix must NOT be allowlisted — that would bypass auth for all admin management routes. `/onboarding/:templateId` page is already covered by the existing `/onboarding` prefix.
+**Rationale:** [TECHNICAL] Minimal allowlist reduces accidental auth bypass. Admin template management routes (`GET /api/templates`, `POST /api/templates`, `GET/PATCH/DELETE /api/templates/:id`) stay behind NextAuth.
+**Alternatives considered:** Allowlisting `/api/templates` broadly — too permissive, exposes admin CRUD routes. Allowlisting by HTTP method in middleware — Next.js middleware doesn't natively filter by method without custom logic.
 
 ### Decision 8: Legacy onboarding system deleted in Wave 4
 **Decision:** Old token-based routes and pages deleted after all new functionality is live (Wave 4 cleanup task).
 **Rationale:** Supports US migration decision. No deprecation period needed — project is not in production.
+**Alternatives considered:** Keeping old routes as redirects — unnecessary complexity for a pre-production project. Deprecation period — no external users exist who depend on old URLs.
+
+### Decision 9: Admin routes require `role === 'ADMIN'` session check
+**Decision:** All admin API routes check `session.user.role === 'ADMIN'` in addition to session existence. Return 403 if role is absent or mismatched. The `role` field is available on the JWT session via `src/lib/auth/auth-options.ts`.
+**Rationale:** [TECHNICAL] Checking session existence alone (`getServerSession`) does not prevent a future non-admin user type from accessing template management. Defense in depth.
+**Alternatives considered:** Route-group middleware — not currently used in this project; auth check inline in each route handler is the existing pattern.
+
+### Decision 10: Zod input validation with explicit size limits
+**Decision:** All text inputs in admin API routes validated with explicit Zod constraints: `name: z.string().min(1).max(255)`, `label: z.string().min(1).max(255)`, `placeholder: z.string().max(500).optional()`, `value: z.string().max(10000)` for text/textarea responses. Number fields: `z.number().finite()`. These limits prevent unbounded writes on all new routes.
+**Rationale:** [TECHNICAL] Without `.max()` limits, any text field accepts arbitrary-length input, enabling write amplification DoS against the database.
+**Alternatives considered:** Database-level constraints only — fails after the write attempt, wastes a round trip. No limits — unacceptable for public-facing endpoints.
+
+### Decision 11: `email` field is nullable on FormSubmission
+**Decision:** `FormSubmission.email` is `String?` (nullable). Email is extracted from the first `EMAIL`-type field response at submit time if present; otherwise stored as null. There is no protected email field analogous to Company Name.
+**Rationale:** [TECHNICAL] User-spec says email is stored "for identification" but does not mandate it in every template. Making it required would break templates that don't include an email field. Nullable preserves flexibility.
+**Alternatives considered:** Protected email field (like Company Name) — over-constrains templates that don't need email. Required with default empty string — misleading data.
 
 ## Data Models
 
@@ -159,7 +177,7 @@ model FormSubmission {
   templateId   String?          // nullable: set to null when template deleted (SetNull)
   templateName String           // snapshot of template.name at submit time
   companyName  String           // extracted from Company Name field at submit time
-  email        String
+  email        String?          // nullable: extracted from first EMAIL field if present
   status       SubmissionStatus @default(NEW)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
@@ -201,6 +219,8 @@ enum SubmissionStatus {
 
 **Remove:** `OnboardingToken` model and all dependent code.
 
+**Retain:** `Merchant` model remains in `prisma/schema.prisma` unchanged — not modified or deleted. Preserved for future document generation (per user-spec technical decision). Task 9 does not touch this model.
+
 **Seed — default template** (`prisma/seed.ts`): After creating admin user, create a `FormTemplate` named "Standard Onboarding" with 4 steps mirroring the current hardcoded form (About the Project / Contacts / Business Profile / Documents), including Company Name as a protected field.
 
 ## Dependencies
@@ -222,11 +242,24 @@ None — all required functionality is available via existing stack.
 **Feature size:** L
 
 ### Unit tests
-- `FormField` type validation: each `FieldType` produces correct Zod schema (TEXT → z.string(), EMAIL → z.string().email(), NUMBER → z.number(), etc.)
-- `isProtected` field: Company Name field cannot be deleted via API (returns 403)
-- Rate limiting: 6th request within window returns 429
-- `companyName` extraction: submit endpoint correctly extracts Company Name from FormData
-- localStorage autosave: `DynamicForm` reads/writes `form-draft-[templateId]` on field change and clears on successful submit
+
+Utility `src/lib/form-validation.ts` exports `buildZodSchema(fields: FormField[])` — tested in isolation:
+- **Field type schema — valid inputs:** TEXT → z.string(), EMAIL → z.string().email(), NUMBER → z.number(), URL → z.string().url(), CHECKBOX → z.boolean()
+- **Field type schema — invalid inputs:** EMAIL field rejects non-email string; URL field rejects non-URL; required field rejects empty value
+- **Field type schema — optional fields:** optional field passes with empty/undefined value
+
+Route-level (API handlers):
+- **Template create — happy path:** POST `/api/templates` with valid body returns 201; response includes auto-added Company Name field with `isProtected: true`
+- **Template create — validation:** POST with no steps returns 400; POST with empty fields array in a step returns 400
+- **Template PATCH — protected field removal:** PATCH body that omits the `isProtected` Company Name field returns 400 "Company Name field cannot be removed"
+- **Submit — happy path:** POST `/api/templates/[id]/submit` with valid FormData returns 201; `FormSubmission` created with correct `companyName` and `templateName` snapshots; `FieldResponse` records created for every submitted field
+- **Submit — template not found:** returns 404
+- **Submit — required field missing:** returns 400
+- **Submit — rate limit:** 6th request from same IP+templateId within window returns 429
+- **Admin auth — role check:** request without ADMIN role session returns 403 on all admin routes
+- **Status transitions — valid:** PATCH `/api/submissions/[id]/status` with NEW→IN_REVIEW returns 200
+- **Status transitions — invalid:** unrecognised status value returns 400
+- **localStorage autosave:** `DynamicForm` writes `form-draft-[templateId]` on field change; restores on mount; clears on successful submit; silently no-ops when localStorage throws
 
 ### Integration tests
 None — agreed in user-spec (no test infrastructure, not worth bootstrapping for v1).
@@ -252,12 +285,20 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 | File upload errors in production (Supabase bucket missing) | Seed or README documents that `form-uploads` bucket must be created in Supabase dashboard before deploy |
 | `prisma migrate deploy` fails on Railway if DB has stale state | Run `prisma migrate reset --force` locally against prod DB before deploy (documented in seed.ts header) |
 | companyName field not found at submit time (template misconfigured) | Submit endpoint returns 400 "Company Name field is required" if protected field response is missing |
+| In-memory rate limiter ineffective across multiple Railway instances | Rate-limit `Map` is process-local — does not share state across replicas. Acceptable for single-instance MVP; if Railway scales to multiple instances, replace with Redis-based limiter |
+| Duplicate submissions on double-click or network retry | No idempotency key. Frontend disables Submit button after first click. Acceptable for MVP; unique constraint not added to avoid overcomplicating schema |
 
 ## User-Spec Deviations
 
-- **Added: `form-uploads` Supabase Storage bucket** (not mentioned in user-spec). Reason: FILE-type fields need a storage location; separating from `logos` bucket is standard practice. → [PENDING USER APPROVAL]
+- **Added: `form-uploads` Supabase Storage bucket** (not mentioned in user-spec). Reason: FILE-type fields need a storage location; separating from `logos` bucket is standard practice. → [TECHNICAL]
+- **Bucket visibility: public vs signed URLs** — not specified in user-spec. Public bucket is simpler; signed URLs protect confidential merchant documents from URL guessing. → [PENDING USER APPROVAL]
 - **Added: `fieldKey` on FormField** (not in user-spec). Reason: stable machine-readable key for localStorage draft mapping and future document generation placeholders (`{{fieldKey}}`). Auto-generated from label (kebab-case). → [TECHNICAL]
-- **Added: `isProtected` flag on FormField** (not in user-spec, implied by "Company Name cannot be deleted"). Reason: enforces the user-spec invariant at data layer and API layer, not just UI layer. → [TECHNICAL]
+- **Added: `isProtected` flag on FormField** (not in user-spec, implied by "Company Name cannot be deleted"). Reason: enforces the invariant at data layer and API layer, not just UI layer. → [TECHNICAL]
+- **Orphan FieldResponse rendering** — user-spec says "orphan responses are skipped". Tech-spec renders them using the `fieldLabel` snapshot (fieldId = null after field deletion). Reason: admin should see all data the client submitted, even for fields that were later removed. Snapshots make this possible at zero extra cost. → [PENDING USER APPROVAL]
+- **PATCH template strategy** — user-spec describes editing fields/steps but doesn't specify the API contract. Tech-spec uses full-replacement PATCH: `PATCH /api/templates/[id]` accepts `{name, steps: [{title, fields: [...]}]}` and replaces all steps/fields atomically (delete old + insert new in a transaction). Existing FieldResponse records are unaffected (SetNull on fieldId). → [TECHNICAL]
+- **FILE upload restrictions** — user-spec mentions file field type but doesn't specify limits. Tech-spec: allowed MIME types (JPEG, PNG, PDF — SVG excluded due to XSS risk), max 10 MB. → [TECHNICAL]
+- **`email` nullable on FormSubmission** — user-spec says email is stored for identification but doesn't mandate it in every template. Tech-spec makes `email String?`. Extracted from first EMAIL-type field if present. → [TECHNICAL]
+- **Copy Link URL construction** — user-spec says `[NEXTAUTH_URL]/onboarding/[templateId]`. Tech-spec uses `process.env.NEXTAUTH_URL` server-side for the Copy Link button value (not `window.location.origin`, which could be wrong behind a proxy). → [TECHNICAL]
 
 ## Acceptance Criteria
 
@@ -276,30 +317,30 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 ### Wave 1: Database Schema
 
 #### Task 1: Prisma schema migration
-- **Description:** Add `FormTemplate`, `FormStep`, `FormField`, `FormSubmission`, `FieldResponse` models and `FieldType`, `SubmissionStatus` enums to `prisma/schema.prisma`. Remove `OnboardingToken` model. Update `prisma/seed.ts` to create default "Standard Onboarding" template with 4 steps mirroring the current form, with Company Name as protected field.
+- **Description:** Establish the new data model foundation for the form-builder feature. All subsequent API and UI tasks depend on this schema being in place. Removes the legacy `OnboardingToken` table and seeds the default template so the system is usable immediately after deploy.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, security-auditor
 - **Files to modify:** `prisma/schema.prisma`, `prisma/seed.ts`
-- **Files to read:** `work/form-builder/tech-spec.md` (Data Models section), `work/form-builder/code-research.md`
+- **Files to read:** `work/form-builder/tech-spec.md`, `work/form-builder/code-research.md`
 
 ### Wave 2: Backend APIs (parallel, all depend on Task 1)
 
 #### Task 2: Template management API
-- **Description:** Implement admin CRUD for form templates: `GET /api/templates` (list all), `POST /api/templates` (create with steps + fields), `GET /api/templates/[id]` (with steps/fields), `PATCH /api/templates/[id]` (update), `DELETE /api/templates/[id]` (cascade-deletes steps/fields, submissions remain). All routes require admin auth. Protected fields (isProtected=true) cannot be deleted via PATCH.
+- **Description:** Implement admin CRUD for form templates. All routes must verify `session.user.role === 'ADMIN'` (Decision 9). PATCH uses full-replacement strategy (Decision — PATCH template strategy in User-Spec Deviations). All text inputs validated with Zod `.max()` limits per Decision 10. POST auto-inserts Company Name protected field.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, security-auditor, test-reviewer
 - **Files to modify:** `src/app/api/templates/route.ts` (new), `src/app/api/templates/[id]/route.ts` (new)
 - **Files to read:** `src/app/api/merchants/route.ts`, `src/lib/db.ts`, `src/lib/auth/auth-options.ts`, `work/form-builder/tech-spec.md`
 
 #### Task 3: Public form API
-- **Description:** Implement `GET /api/templates/[id]/public` (returns template with steps/fields, no auth required, 404 if not found) and `POST /api/templates/[id]/submit` (public, rate-limited 5/IP/hour, validates required fields, extracts companyName, stores FormSubmission + FieldResponse, handles FILE uploads to Supabase `form-uploads` bucket). Update `src/middleware.ts` to allow these public routes.
+- **Description:** Implement the public template fetch and form submission endpoints. Submit endpoint must enforce all formal file upload requirements from Decision 6: MIME allowlist (JPEG/PNG/PDF only), 10 MB max, filename sanitization. Rate limit key: `submit:${templateId}:${ip}` with IP from `x-forwarded-for` header first value. Middleware allowlist uses exact paths only (Decision 7). `public` endpoint must not expose `isProtected` or `fieldKey` in response.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, security-auditor, test-reviewer
 - **Files to modify:** `src/app/api/templates/[id]/public/route.ts` (new), `src/app/api/templates/[id]/submit/route.ts` (new), `src/middleware.ts`
-- **Files to read:** `src/app/api/onboarding/submit/route.ts`, `src/lib/rate-limit.ts`, `src/lib/supabase.ts`, `src/lib/db.ts`
+- **Files to read:** `src/app/api/onboarding/submit/route.ts`, `src/lib/rate-limit.ts`, `src/lib/supabase.ts`, `src/lib/db.ts`, `src/lib/form-validation.ts` (new, created in T1 or T2)
 
 #### Task 4: Submissions API
-- **Description:** Implement admin endpoints for reviewing submissions: `GET /api/submissions` (list, ordered by createdAt DESC, includes companyName/templateName/status), `GET /api/submissions/[id]` (detail with template steps/fields + all FieldResponse), `PATCH /api/submissions/[id]/status` (update status, valid transitions: NEW→IN_REVIEW→APPROVED|REJECTED). All require admin auth.
+- **Description:** Implement admin endpoints for reviewing submissions. All routes verify `session.user.role === 'ADMIN'` (Decision 9). List endpoint (`GET /api/submissions`) returns companyName/templateName/status/createdAt — **email excluded from list response** (returned only in detail). Detail endpoint returns full FieldResponse list including orphans (fieldId = null). Status transitions: NEW→IN_REVIEW→APPROVED|REJECTED only.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, security-auditor, test-reviewer
 - **Files to modify:** `src/app/api/submissions/route.ts` (new), `src/app/api/submissions/[id]/route.ts` (new), `src/app/api/submissions/[id]/status/route.ts` (new)
@@ -308,7 +349,7 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 ### Wave 3: UI (parallel, T5/T6/T7 depend on T2+T4, T8 depends on T3)
 
 #### Task 5: Templates admin pages
-- **Description:** Build `/dashboard/templates` list page (table: name, createdAt, Edit/Copy Link/Delete buttons) and template editor (`/dashboard/templates/new` + `/dashboard/templates/[id]/edit`). Editor: template name input, step list with Add Step / ↑↓ / Delete, per-step field list with Add Field / ↑↓ / Delete (hidden for isProtected). Field form: type dropdown, label, placeholder, required toggle. On save: calls template API.
+- **Description:** Build the template list and editor UI in English. List page includes a confirm dialog before deletion (AC10). Editor enforces AC7: save is blocked if there are no steps or any step has no fields. Copy Link button passes `process.env.NEXTAUTH_URL` as the base URL (not `window.location.origin`). Delete button hidden for `isProtected` fields. All UI text in English.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, test-reviewer
 - **Verify-user:** Open `localhost:3000/dashboard/templates` → create template with 2 steps and 3 fields → template appears in list with Copy Link button.
@@ -316,15 +357,15 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 - **Files to read:** `src/app/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/MerchantsTable.tsx`, `work/form-builder/tech-spec.md`
 
 #### Task 6: Dashboard refactor
-- **Description:** Replace `CreateLinkButton` with a `<Link href="/dashboard/templates">Templates</Link>` button. Replace `MerchantsTable` with new `SubmissionsTable` component that fetches from `GET /api/submissions` and shows: company name, template name, submission date, status badge, "Open" link. Update `StatsCard` counts to use `SubmissionStatus` values. Update dashboard page to English labels.
+- **Description:** Switch the dashboard from showing `Merchant` records to showing `FormSubmission` records, and replace the single-use link button with a navigation entry to the templates section. `SubmissionsTable` shows: companyName, templateName, date, status badge. `StatsCard` counts are switched from Merchant status counts to SubmissionStatus counts (NEW/IN_REVIEW/APPROVED/REJECTED). All UI text in English.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, test-reviewer
 - **Verify-user:** Open `localhost:3000/dashboard` → "Templates" button visible → after submitting a test form, submission row appears in table.
 - **Files to modify:** `src/app/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/CreateLinkButton.tsx`, `src/components/dashboard/MerchantsTable.tsx`, `src/components/dashboard/StatsCard.tsx`
-- **Files to read:** `src/app/api/submissions/route.ts`, `src/components/dashboard/MerchantsTable.tsx`
+- **Files to read:** `src/app/api/submissions/route.ts`, `src/components/dashboard/MerchantsTable.tsx`, `src/components/dashboard/StatsCard.tsx`
 
 #### Task 7: Submission detail page
-- **Description:** Repurpose `/dashboard/merchants/[id]` as `/dashboard/submissions/[id]`. Fetch submission with `GET /api/submissions/[id]` (includes template structure + FieldResponse). Render field responses grouped by step, using `fieldLabel` snapshot for display. FILE-type responses rendered as download links. Orphan responses (fieldId = null) rendered with `fieldLabel` only. Include `StatusChanger` component (existing pattern). All labels in English.
+- **Description:** Repurpose `/dashboard/merchants/[id]` as `/dashboard/submissions/[id]`. Renders all field responses grouped by step. When `submission.templateId` is null (deleted template), show a note "Template was deleted" but still render all FieldResponse data. FILE-type responses rendered as download/anchor links — href must be validated to `http://` or `https://` only before rendering to prevent `javascript:` URI XSS. All labels in English.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer, test-reviewer
 - **Verify-user:** Open a submission detail page → all submitted field values visible → status change works.
@@ -342,11 +383,12 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 ### Wave 4: Legacy Cleanup (depends on all Wave 3 tasks)
 
 #### Task 9: Remove legacy onboarding system
-- **Description:** Delete all token-based onboarding code: `onboarding/[token]/` page + `OnboardingForm.tsx`, `api/onboarding/create-link/`, `api/onboarding/submit/`. Delete or repurpose `api/merchants/` and `api/merchants/[id]/status/` (now covered by submissions API). Update `src/middleware.ts` to remove old allowlist entries. Verify no remaining imports of deleted modules.
+- **Description:** Remove the legacy single-use token onboarding system now that all clients have been migrated to the new template-based flow. Eliminates dead code, prevents accidental use of deprecated endpoints, and reduces middleware complexity. Does NOT touch the `Merchant` model — it is retained per user-spec.
 - **Skill:** code-writing
 - **Reviewers:** code-reviewer
 - **Files to modify:** `src/middleware.ts`
-- **Files to read:** `src/app/api/onboarding/create-link/route.ts`, `src/app/api/onboarding/submit/route.ts`, `src/app/(onboarding)/onboarding/[token]/page.tsx`
+- **Files to read:** `src/app/api/onboarding/create-link/route.ts`, `src/app/api/onboarding/submit/route.ts`, `src/app/(onboarding)/onboarding/[token]/page.tsx`, `src/app/(onboarding)/onboarding/[token]/OnboardingForm.tsx`, `src/app/api/merchants/route.ts`, `src/app/api/merchants/[id]/status/route.ts`
+- **Files to delete:** `src/app/api/onboarding/create-link/route.ts`, `src/app/api/onboarding/submit/route.ts`, `src/app/(onboarding)/onboarding/[token]/page.tsx`, `src/app/(onboarding)/onboarding/[token]/OnboardingForm.tsx`, `src/app/api/merchants/route.ts`, `src/app/api/merchants/[id]/status/route.ts`
 
 ### Audit Wave
 
@@ -354,16 +396,19 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 - **Description:** Full-feature code quality audit. Read all source files created/modified in this feature. Review holistically for cross-component issues: duplicate resource initialization, shared resources compliance with Architecture decisions, architectural consistency across API routes and UI components. Write audit report.
 - **Skill:** code-reviewing
 - **Reviewers:** none
+- **Files to read:** `prisma/schema.prisma`, `prisma/seed.ts`, `src/app/api/templates/route.ts`, `src/app/api/templates/[id]/route.ts`, `src/app/api/templates/[id]/public/route.ts`, `src/app/api/templates/[id]/submit/route.ts`, `src/app/api/submissions/route.ts`, `src/app/api/submissions/[id]/route.ts`, `src/app/api/submissions/[id]/status/route.ts`, `src/app/(dashboard)/templates/page.tsx`, `src/app/(dashboard)/templates/new/page.tsx`, `src/app/(dashboard)/templates/[id]/edit/page.tsx`, `src/components/dashboard/TemplateEditor.tsx`, `src/app/(dashboard)/dashboard/page.tsx`, `src/app/(dashboard)/submissions/[id]/page.tsx`, `src/app/(onboarding)/onboarding/[templateId]/page.tsx`, `src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx`, `src/middleware.ts`
 
 #### Task 11: Security Audit
 - **Description:** Full-feature security audit. Read all source files created/modified in this feature. Analyze for OWASP Top 10: public submit endpoint (injection, rate limiting, file upload validation), admin routes (auth bypass), FieldResponse value storage (XSS in rendering), Supabase Storage access. Write audit report.
 - **Skill:** security-auditor
 - **Reviewers:** none
+- **Files to read:** `src/app/api/templates/route.ts`, `src/app/api/templates/[id]/route.ts`, `src/app/api/templates/[id]/public/route.ts`, `src/app/api/templates/[id]/submit/route.ts`, `src/app/api/submissions/route.ts`, `src/app/api/submissions/[id]/route.ts`, `src/app/api/submissions/[id]/status/route.ts`, `src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx`, `src/app/(dashboard)/submissions/[id]/page.tsx`, `src/middleware.ts`
 
 #### Task 12: Test Audit
 - **Description:** Full-feature test quality audit. Read all test files created in this feature. Verify coverage of field type validation, rate limiting, companyName extraction, localStorage autosave. Check for meaningful assertions (not testing mocks). Write audit report.
 - **Skill:** test-master
 - **Reviewers:** none
+- **Files to read:** All test files in `src/__tests__/` and `src/app/` matching `*.test.ts`, `*.test.tsx`, `*.spec.ts`, `*.spec.tsx` created for this feature
 
 ### Final Wave
 
@@ -371,8 +416,10 @@ None (no MCP tools). User verifies via browser at `localhost:3000`.
 - **Description:** Acceptance testing: run all unit tests, manually verify all 16 acceptance criteria from user-spec and 9 from tech-spec. Follow the 6-step verification plan from user-spec "Как проверить" section. Document results.
 - **Skill:** pre-deploy-qa
 - **Reviewers:** none
+- **Files to read:** N/A (runs tests and checks browser)
 
 #### Task 14: Deploy
 - **Description:** Push to `main` → Railway auto-deploys via Dockerfile. Verify `prisma migrate deploy` runs in build step. Confirm health check passes at `/api/health`. Manually create `form-uploads` bucket in Supabase dashboard if not already present.
 - **Skill:** deploy-pipeline
 - **Reviewers:** none
+- **Files to read:** N/A

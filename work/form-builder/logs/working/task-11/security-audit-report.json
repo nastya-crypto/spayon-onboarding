@@ -1,0 +1,89 @@
+{
+  "task": "task-11-security-audit",
+  "date": "2026-04-19",
+  "status": "fail",
+  "summary": "All admin routes are correctly gated with ADMIN role checks and public routes are unauthenticated as designed. Two medium-severity gaps were found: CSRF protection is absent on state-changing API routes (standard Next.js App Router exposure), and the `fieldKey` field in template create/update schemas has no `.max()` length cap. One low-severity issue: the REVIEWER role can see (but not successfully invoke) the StatusChanger UI component due to missing role-gate on the component itself.",
+  "findings": [
+    {
+      "id": "SA-01",
+      "owasp": "A05",
+      "severity": "medium",
+      "file": "src/app/api/templates/route.ts",
+      "line": null,
+      "description": "CSRF: State-changing routes (POST /api/templates, PATCH/DELETE /api/templates/[id], PATCH /api/submissions/[id]/status) authenticate via NextAuth session cookies but have no CSRF token validation. Next.js App Router API routes are not protected by NextAuth's built-in CSRF mechanism. A malicious site could trigger cross-site requests from an authenticated admin browser. Impact is mitigated by the Content-Type requirement for JSON bodies (non-simple request that triggers CORS preflight), but multipart FormData routes like /submit are simpler requests and bypass CORS preflights — though /submit is public so the CSRF risk targets admin routes specifically.",
+      "recommendation": "Add a custom CSRF token check (e.g., compare a `x-csrf-token` header value against a cookie) for all admin state-changing routes, or use the `SameSite=Strict` cookie attribute for the session cookie. For JSON routes, verifying `Content-Type: application/json` as a required header provides partial mitigation. Consider using a library like `csrf` or `edge-csrf` for Next.js."
+    },
+    {
+      "id": "SA-02",
+      "owasp": "A03",
+      "severity": "medium",
+      "file": "src/app/api/templates/route.ts",
+      "line": 16,
+      "description": "Input validation gap: `fieldKey` in `fieldSchema` is defined as `z.string().optional()` with no `.max()` constraint in both `/api/templates` (POST) and `/api/templates/[id]` (PATCH). An authenticated admin could submit an arbitrarily long `fieldKey` string, potentially causing excessive DB column storage or triggering downstream issues. All other text fields (`label`, `placeholder`, `name`, `title`) have `.max()` limits.",
+      "recommendation": "Add `.max(255)` (or a tighter limit matching the DB column length) to the `fieldKey` field in `fieldSchema`: `fieldKey: z.string().max(255).optional()`. Apply this fix in both `src/app/api/templates/route.ts` and `src/app/api/templates/[id]/route.ts`."
+    },
+    {
+      "id": "SA-03",
+      "owasp": "A01",
+      "severity": "low",
+      "file": "src/app/(dashboard)/submissions/[id]/page.tsx",
+      "line": 218,
+      "description": "The `StatusChanger` component is rendered for both ADMIN and REVIEWER roles (line 83 allows both). The underlying PATCH `/api/submissions/[id]/status` API correctly requires ADMIN, so status changes from a REVIEWER will receive a 403. However, showing the status-change UI to a role that cannot use it creates confusion and is a defense-in-depth gap — a future API change could accidentally expose the capability.",
+      "recommendation": "Conditionally render `StatusChanger` only for ADMIN role: `{session.user.role === 'ADMIN' && <StatusChanger ... />}`. Pass the session role as a prop from the server component."
+    },
+    {
+      "id": "SA-04",
+      "owasp": "A03",
+      "severity": "low",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": 17,
+      "description": "The PATCH handler's `fieldSchema` accepts `isProtected: z.boolean().optional()` from the client body and writes it directly to the DB (`isProtected: field.isProtected ?? false`). This allows an authenticated ADMIN to set any field as protected via the API, which may not be an intended capability (protection should be set only programmatically at creation time). Since only ADMINs can call this, the immediate risk is low, but it could lead to unintended template corruption.",
+      "recommendation": "Strip `isProtected` from the incoming body in the PATCH handler by removing it from `fieldSchema` (or ignoring it in the write path). Protect field status should only be set server-side during template creation."
+    },
+    {
+      "id": "SA-05",
+      "owasp": "A09",
+      "severity": "low",
+      "file": "src/app/api/templates/route.ts",
+      "line": 77,
+      "description": "Zod validation error issues are returned verbatim to the admin client: `return NextResponse.json({ error: parsed.error.issues }, { status: 400 })`. This is acceptable for admin-facing routes but exposes internal schema field names and constraint details. The same pattern exists in `/api/templates/[id]` PATCH. These are ADMIN-only routes so exploitation risk is minimal, but it is a deviation from the no-internal-details policy.",
+      "recommendation": "For consistency, return a sanitized error list (e.g., `{ field, message }` pairs) rather than the raw Zod issue objects, or at minimum omit `path` entries that reveal schema internals. Since these are admin routes, this is low priority."
+    },
+    {
+      "id": "SA-06",
+      "owasp": "other",
+      "severity": "info",
+      "file": "src/lib/rate-limit.ts",
+      "line": null,
+      "description": "The in-memory rate limiter is acknowledged in comments as single-instance only (Railway). On multi-instance scale-out, effective limit becomes 5*N per window per key. This is a documented known tradeoff, not a new finding. The comment in submit/route.ts explicitly flags this.",
+      "recommendation": "Before horizontal scaling, replace with a Redis-backed rate limiter (e.g., `@upstash/ratelimit` or `ioredis`). No immediate action required for single-instance Railway deployment."
+    },
+    {
+      "id": "SA-07",
+      "owasp": "other",
+      "severity": "info",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 84,
+      "description": "The `loadDraft` function parses localStorage JSON with `JSON.parse(raw) as unknown` and validates it is a non-null, non-array object before use. This guards against prototype pollution via `__proto__` key injection through a crafted localStorage value. The cast and type check are sufficient for the current usage pattern.",
+      "recommendation": "No action required. The existing type guard (`typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)`) is correct. Consider adding Object.create(null) or using a library like `safe-flat` if the draft object is ever spread into sensitive operations."
+    },
+    {
+      "id": "SA-08",
+      "owasp": "other",
+      "severity": "info",
+      "file": "src/middleware.ts",
+      "line": null,
+      "description": "The `/onboarding` prefix is broadly allowlisted (`pathname.startsWith('/onboarding')`). This means any future route under `/onboarding/*` would be publicly accessible without authentication by default. Currently this is intentional (onboarding forms are public), but it is a broad allowlist rather than a specific route match.",
+      "recommendation": "If the onboarding section ever includes admin sub-routes, ensure those are explicitly excluded from the allowlist. Document the intent of the broad `/onboarding` allowlist in the middleware comments."
+    }
+  ],
+  "checklist": {
+    "all_admin_routes_role_check": true,
+    "mime_allowlist_no_svg": true,
+    "filename_sanitization_present": true,
+    "middleware_exact_paths_only": true,
+    "rate_limit_ip_from_x_forwarded_for_first": true,
+    "href_validated_http_https_only": true,
+    "no_stack_traces_in_errors": true
+  }
+}

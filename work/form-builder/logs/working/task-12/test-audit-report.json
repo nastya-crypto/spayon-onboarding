@@ -1,0 +1,115 @@
+{
+  "summary": {
+    "total_scenarios": 14,
+    "covered": 9,
+    "missing": 0,
+    "weak": 5
+  },
+  "scenarios": [
+    {
+      "id": 1,
+      "name": "buildZodSchema — valid inputs per FieldType (TEXT, EMAIL, NUMBER, URL, CHECKBOX)",
+      "status": "weak",
+      "file": "src/__tests__/lib/form-validation.test.ts",
+      "notes": "TEXT valid (line 4-9), NUMBER valid (line 39-45), CHECKBOX valid (line 47-53) are tested. EMAIL valid path is NOT tested in buildZodSchema — only EMAIL rejection is present. URL valid path is also absent (only URL rejection tested). Two of the five required FieldType valid-input assertions are missing."
+    },
+    {
+      "id": 2,
+      "name": "buildZodSchema — invalid inputs (EMAIL rejects non-email, URL rejects non-URL, required field rejects empty)",
+      "status": "covered",
+      "file": "src/__tests__/lib/form-validation.test.ts",
+      "notes": "EMAIL rejects non-email (line 11-15), URL rejects non-URL (line 18-23), required TEXT rejects empty string (line 25-30). All three invalid-input cases covered with specific throw assertions."
+    },
+    {
+      "id": 3,
+      "name": "buildZodSchema — optional fields pass with empty/undefined value",
+      "status": "covered",
+      "file": "src/__tests__/lib/form-validation.test.ts",
+      "notes": "Optional TEXT field passes with undefined (line 32-37). Only TEXT tested, but the scenario is behaviorally exercised. Assertion uses not.toThrow() which is specific enough."
+    },
+    {
+      "id": 4,
+      "name": "Template create happy path — POST /api/templates returns 201; response includes Company Name field with isProtected: true",
+      "status": "covered",
+      "file": "src/__tests__/api/templates.test.ts",
+      "notes": "Lines 89-133: returns 201, then inspects prisma.create call arguments to verify Company Name is first field with isProtected: true and order: 0. Arguments verified specifically, not loosely."
+    },
+    {
+      "id": 5,
+      "name": "Template create validation — POST with no steps returns 400; POST with empty fields array in a step returns 400",
+      "status": "covered",
+      "file": "src/__tests__/api/templates.test.ts",
+      "notes": "Empty steps array returns 400 (lines 135-150). Step with empty fields array returns 400 (lines 152-170). Both cases covered with exact status code assertions."
+    },
+    {
+      "id": 6,
+      "name": "Template PATCH removes protected field → 400 'Company Name field cannot be removed'",
+      "status": "covered",
+      "file": "src/__tests__/api/templates.test.ts",
+      "notes": "Lines 172-203: returns 400, asserts data.error contains exact message 'Company Name field cannot be removed', and additionally verifies $transaction was NOT called (guard fires before mutation). Strong coverage."
+    },
+    {
+      "id": 7,
+      "name": "Submit happy path — POST /api/templates/[id]/submit returns 201; FormSubmission created with correct snapshots; FieldResponse records created for every field",
+      "status": "weak",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "notes": "Lines 277-308: returns 201 and asserts mockSubmissionCreate was called with correct templateId, templateName, companyName, email arguments. However, there is NO assertion that mockFieldResponseCreate was called (the mock is only set up with mockResolvedValue at line 287, never asserted via toHaveBeenCalled or toHaveBeenCalledWith). Per the special check for scenario 7, this is marked weak."
+    },
+    {
+      "id": 8,
+      "name": "Submit template not found → 404",
+      "status": "covered",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "notes": "Lines 130-143: findUnique returns null, POST returns 404. Status code asserted exactly."
+    },
+    {
+      "id": 9,
+      "name": "Submit required field missing → 400",
+      "status": "covered",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "notes": "Lines 157-169: required TEXT field missing from FormData, returns 400. Lines 172-187: company-name present but empty, returns 400 with body containing 'Company Name'. Two distinct 400 cases covered."
+    },
+    {
+      "id": 10,
+      "name": "Submit rate limit — 6th request from same IP+templateId returns 429",
+      "status": "covered",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "notes": "Lines 145-155: rateLimit mock returns { allowed: false, remaining: 0 }, POST returns 429. The rate-limit boundary behaviour is confirmed via the mocked rateLimit return value. Acceptable coverage given rateLimit is a separate unit."
+    },
+    {
+      "id": 11,
+      "name": "Admin auth role check → 403 on all admin routes for non-ADMIN role session",
+      "status": "weak",
+      "file": "src/__tests__/api/templates.test.ts, src/__tests__/api/submissions/route.test.ts, src/__tests__/api/submissions/[id]/route.test.ts, src/__tests__/api/submissions/[id]/status/route.test.ts",
+      "notes": "403 for non-ADMIN is tested on: GET /api/templates (templates.test.ts line 52-57), GET /api/submissions (submissions/route.test.ts line 30-40), GET /api/submissions/[id] (submissions/[id]/route.test.ts line 41-51), PATCH /api/submissions/[id]/status (status/route.test.ts line 46-60). Missing 403 tests for: POST /api/templates, PATCH /api/templates/[id], DELETE /api/templates/[id] — those tests only exercise with adminSession and do not include a non-admin 403 case."
+    },
+    {
+      "id": 12,
+      "name": "Status transitions valid — PATCH /api/submissions/[id]/status with valid transition returns 200",
+      "status": "covered",
+      "file": "src/__tests__/api/submissions/[id]/status/route.test.ts",
+      "notes": "Lines 79-95: NEW→IN_REVIEW returns 200 with data.status === 'IN_REVIEW'. Lines 97-113: IN_REVIEW→APPROVED returns 200. Lines 115-131: IN_REVIEW→REJECTED returns 200. All asserted with specific return value checks."
+    },
+    {
+      "id": 13,
+      "name": "Status transitions invalid — unrecognised status value returns 400",
+      "status": "covered",
+      "file": "src/__tests__/api/submissions/[id]/status/route.test.ts",
+      "notes": "Lines 150-166: unknown status 'BANANA' returns 400, error is defined, and findUnique was NOT called (validation fires before DB). Lines 133-148: valid-but-illegal transition NEW→APPROVED returns 400. Both invalid-transition and unknown-value cases covered."
+    },
+    {
+      "id": 14,
+      "name": "localStorage autosave — writes form-draft-[templateId] on save, restores on load, clears on clear, silently ignores localStorage errors",
+      "status": "weak",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "notes": "saveDraft writes with key 'form-draft-tpl-abc' and correct JSON (lines 94-99, verified via setItem argument). loadDraft restores previously saved values (lines 101-106). clearDraft calls removeItem with correct key (lines 108-111). loadDraft silently returns null when getItem throws (lines 113-121). Missing: saveDraft error-silencing — there is no test that setItem throwing does not propagate an exception. Only loadDraft error path is tested, not saveDraft."
+    }
+  ],
+  "overall_verdict": "fail",
+  "issues": [
+    "Scenario 7 (submit happy path): mockFieldResponseCreate is configured but never asserted. No expect(mockFieldResponseCreate).toHaveBeenCalled() or toHaveBeenCalledWith() call exists. FieldResponse record creation is not verified.",
+    "Scenario 1 (buildZodSchema valid inputs): EMAIL and URL valid-input paths are not tested in form-validation.test.ts. Only their rejection paths are present.",
+    "Scenario 11 (admin auth 403): POST /api/templates, PATCH /api/templates/[id], and DELETE /api/templates/[id] have no 403 test for non-ADMIN sessions.",
+    "Scenario 14 (localStorage autosave): saveDraft does not have an error-silencing test. Only loadDraft's error path is covered."
+  ]
+}

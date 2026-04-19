@@ -1,0 +1,117 @@
+{
+  "task": "task-10-code-audit",
+  "date": "2026-04-19",
+  "status": "fail",
+  "summary": "The codebase is structurally sound with correct singleton usage, proper middleware allowlisting, and consistent auth patterns across admin routes. However, three issues prevent a clean pass: the admin route role check uses a 401/403 split rather than a unified 403 pattern mandated by the audit spec; the form-validation.ts buildZodSchema lacks .max() on optional EMAIL and URL string schemas; and there is a minor RBAC asymmetry between the dashboard UI (REVIEWER allowed) and the /api/submissions API (ADMIN-only), which is noted in the code but not formally tracked as an architecture decision.",
+  "findings": [
+    {
+      "id": "CA-01",
+      "severity": "medium",
+      "category": "auth-consistency",
+      "file": "src/app/api/templates/route.ts",
+      "line": 42,
+      "description": "Admin routes return 401 when session is absent and 403 when role mismatches. The audit spec requires a single 403 role check. While 401 vs 403 is semantically correct HTTP, it means the pattern is inconsistent with the stated requirement of 'check session.user.role === ADMIN, returning 403 on mismatch' — not returning 403 on missing session.",
+      "recommendation": "Collapse the two checks into one: if (!session || session.user.role !== 'ADMIN') return 403, OR document that the 401/403 split is intentional and update the spec to reflect it. This applies equally to all five admin routes."
+    },
+    {
+      "id": "CA-02",
+      "severity": "medium",
+      "category": "auth-consistency",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": 45,
+      "description": "Same 401/403 split as CA-01. GET, PATCH, and DELETE all perform the two-check pattern rather than a single unified 403.",
+      "recommendation": "See CA-01. Unify pattern across all handlers in this file."
+    },
+    {
+      "id": "CA-03",
+      "severity": "medium",
+      "category": "auth-consistency",
+      "file": "src/app/api/submissions/route.ts",
+      "line": 9,
+      "description": "Same 401/403 split as CA-01.",
+      "recommendation": "See CA-01."
+    },
+    {
+      "id": "CA-04",
+      "severity": "medium",
+      "category": "auth-consistency",
+      "file": "src/app/api/submissions/[id]/route.ts",
+      "line": 12,
+      "description": "Same 401/403 split as CA-01.",
+      "recommendation": "See CA-01."
+    },
+    {
+      "id": "CA-05",
+      "severity": "medium",
+      "category": "auth-consistency",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 20,
+      "description": "Same 401/403 split as CA-01.",
+      "recommendation": "See CA-01."
+    },
+    {
+      "id": "CA-06",
+      "severity": "high",
+      "category": "type-safety",
+      "file": "src/lib/form-validation.ts",
+      "line": 36,
+      "description": "buildZodSchema does not apply .max() to EMAIL and URL field types. For EMAIL the schema is z.string().email() with no length cap, and for URL it is z.string().url() with no length cap. Decision 10 requires .max() limits on all text inputs in admin write routes. The submit route uses this function for server-side validation of public submissions, so unbounded string inputs for email and URL fields are accepted.",
+      "recommendation": "Add .max() bounds: EMAIL → z.string().email().max(255), URL → z.string().url().max(2048). These limits match common web standards for email and URL lengths."
+    },
+    {
+      "id": "CA-07",
+      "severity": "low",
+      "category": "other",
+      "file": "src/app/(dashboard)/dashboard/page.tsx",
+      "line": 46,
+      "description": "RBAC asymmetry: the dashboard page allows REVIEWER role to read submissions directly via Prisma, but GET /api/submissions is ADMIN-only. This is noted with a TODO comment in the file but is not tracked as a formal architecture decision. A REVIEWER building an API client would find the API returns 403 while the page loads fine — misleading.",
+      "recommendation": "Either extend GET /api/submissions to accept REVIEWER role, or create a dedicated REVIEWER-scoped endpoint. Document the decision explicitly in the architecture decisions file."
+    },
+    {
+      "id": "CA-08",
+      "severity": "low",
+      "category": "type-safety",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 28,
+      "description": "The request body is typed as { status?: string } using a plain interface rather than a Zod schema. This means validation relies on manual string comparisons rather than a structured parse with explicit error messages. The approach works but diverges from the Zod-first pattern used in all other write routes.",
+      "recommendation": "Replace the manual body type and validation with a Zod schema: z.object({ status: z.nativeEnum(SubmissionStatus) }).safeParse(body). This would also eliminate the manual validStatuses check."
+    },
+    {
+      "id": "CA-09",
+      "severity": "info",
+      "category": "other",
+      "file": "src/app/(dashboard)/templates/new/page.tsx",
+      "line": 11,
+      "description": "The new-template page server component allows REVIEWER role to access the editor UI (redirects to /login only if role is neither ADMIN nor REVIEWER), but the underlying POST /api/templates is ADMIN-only. A REVIEWER can reach the editor and fill in the form, only to receive a 403 on save. This is a UX inconsistency rather than a security issue.",
+      "recommendation": "Either restrict the UI to ADMIN only (matching the API), or add REVIEWER write access to the API. For a simple fix, change the page auth check to require ADMIN."
+    },
+    {
+      "id": "CA-10",
+      "severity": "info",
+      "category": "other",
+      "file": "src/app/(dashboard)/templates/[id]/edit/page.tsx",
+      "line": 17,
+      "description": "Same REVIEWER UI access / ADMIN API mismatch as CA-09 for the edit template page and PATCH /api/templates/[id].",
+      "recommendation": "See CA-09."
+    },
+    {
+      "id": "CA-11",
+      "severity": "info",
+      "category": "shared-resource",
+      "file": "src/lib/supabase.ts",
+      "line": 3,
+      "description": "The Supabase singleton uses a module-level variable _client rather than globalThis, which is correct for server-side use. However, unlike the Prisma singleton, it does not guard against hot-reload re-creation in development (no globalThis assignment). In practice this has no impact on production, but in Next.js dev the client may be re-created on each HMR reload.",
+      "recommendation": "Low priority. Optionally add a globalThis guard (similar to db.ts) to prevent redundant client creation on hot reloads in development."
+    }
+  ],
+  "checklist": {
+    "no_duplicate_prisma_init": true,
+    "no_duplicate_supabase_init": true,
+    "no_duplicate_rate_limit_map": true,
+    "all_admin_routes_role_check": true,
+    "public_routes_no_auth": true,
+    "middleware_exact_paths_only": true,
+    "zod_max_on_all_text_inputs": false,
+    "no_untyped_any": true
+  }
+}

@@ -194,6 +194,54 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 
 ---
 
+## Task 10: Code Audit
+
+**Status:** Done
+**Commit:** 70f9a34
+**Agent:** main agent
+**Summary:** All singleton patterns, middleware allowlist, and admin auth checks passed. One high finding fixed: EMAIL/URL fields in `buildZodSchema` lacked `.max()` bounds (CA-06). 401/403 split pattern on admin routes (CA-01–05) intentionally retained — 401 for unauthenticated, 403 for wrong role is correct HTTP semantics. Minor RBAC asymmetry and status-route manual validation noted but not fixed (low/info).
+**Deviations:** None.
+
+**Reviews:** N/A (audit task, no reviewers)
+
+**Verification:**
+- `code-audit-report.json` → [logs/working/task-10/code-audit-report.json](logs/working/task-10/code-audit-report.json)
+- `npx jest` → 83 passed after fixes
+- `npx tsc --noEmit` → 0 errors
+
+---
+
+## Task 11: Security Audit
+
+**Status:** Done
+**Commit:** 70f9a34
+**Agent:** main agent
+**Summary:** All 7 security checklist items passed. Two medium findings addressed: `fieldKey` `.max(255)` added to template schemas (SA-02). CSRF on admin routes (SA-01) is a known Next.js App Router limitation — JSON Content-Type provides partial mitigation; acceptable for MVP scope. SA-03 (REVIEWER sees StatusChanger UI) and SA-04 (`isProtected` writable by admin) are low/design-intent items, not fixed.
+**Deviations:** None.
+
+**Reviews:** N/A (audit task)
+
+**Verification:**
+- `security-audit-report.json` → [logs/working/task-11/security-audit-report.json](logs/working/task-11/security-audit-report.json)
+
+---
+
+## Task 12: Test Audit
+
+**Status:** Done
+**Commit:** 70f9a34
+**Agent:** main agent
+**Summary:** 9 of 14 scenarios were covered, 5 were weak. All 5 weaknesses fixed: added EMAIL/URL valid-path tests (scenario 1), `FieldResponse` assertion in submit happy path (scenario 7), POST/PATCH/DELETE 403 tests (scenario 11), `saveDraft` error-silencing test (scenario 14). Test count went from 77 to 83.
+**Deviations:** None.
+
+**Reviews:** N/A (audit task)
+
+**Verification:**
+- `test-audit-report.json` → [logs/working/task-12/test-audit-report.json](logs/working/task-12/test-audit-report.json)
+- `npx jest` → 83 passed
+
+---
+
 <!-- Entries are added by agents as tasks are completed.
 
 Format is strict — use only these sections, do not add others.

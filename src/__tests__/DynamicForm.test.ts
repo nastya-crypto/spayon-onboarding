@@ -111,6 +111,13 @@ describe("localStorage draft", () => {
     expect(localStorageMock.removeItem).toHaveBeenCalledWith("form-draft-tpl-abc");
   });
 
+  it("saveDraft silently ignores errors when localStorage.setItem throws", () => {
+    localStorageMock.setItem.mockImplementation(() => { throw new Error("quota exceeded"); });
+    expect(() => saveDraft("tpl-abc", { "f-1": "value" })).not.toThrow();
+    // Restore
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => { store[key] = value; });
+  });
+
   it("loadDraft silently returns null when localStorage.getItem throws", () => {
     localStorageMock.getItem.mockImplementation(() => { throw new Error("quota exceeded"); });
     let result: Record<string, string> | null | undefined;

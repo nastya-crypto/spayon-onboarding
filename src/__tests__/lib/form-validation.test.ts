@@ -8,6 +8,20 @@ describe("buildZodSchema", () => {
     expect(() => schema.parse({ name: "hello" })).not.toThrow();
   });
 
+  test("EMAIL field accepts valid email", () => {
+    const schema = buildZodSchema([
+      { fieldKey: "email", type: "EMAIL", required: true },
+    ]);
+    expect(() => schema.parse({ email: "user@example.com" })).not.toThrow();
+  });
+
+  test("URL field accepts valid URL", () => {
+    const schema = buildZodSchema([
+      { fieldKey: "url", type: "URL", required: true },
+    ]);
+    expect(() => schema.parse({ url: "https://example.com" })).not.toThrow();
+  });
+
   test("EMAIL field rejects non-email", () => {
     const schema = buildZodSchema([
       { fieldKey: "email", type: "EMAIL", required: true },

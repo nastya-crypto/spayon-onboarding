@@ -305,6 +305,19 @@ describe("POST /submit creates FormSubmission with correct snapshots on happy pa
         }),
       })
     );
+
+    // FieldResponse records must be created for every submitted field
+    expect(mockFieldResponseCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          submissionId: "sub-1",
+          fieldLabel: expect.any(String),
+          value: expect.any(String),
+        }),
+      })
+    );
+    // One FieldResponse per field in the template (2 fields in makeTemplate())
+    expect(mockFieldResponseCreate).toHaveBeenCalledTimes(2);
   });
 });
 

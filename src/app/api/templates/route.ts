@@ -13,7 +13,7 @@ const fieldSchema = z.object({
   placeholder: z.string().max(500).optional(),
   type: z.enum(["TEXT", "EMAIL", "URL", "NUMBER", "TEXTAREA", "FILE", "CHECKBOX"]),
   required: z.boolean().default(true),
-  fieldKey: z.string().optional(),
+  fieldKey: z.string().max(255).optional(),
 });
 
 const stepSchema = z.object({

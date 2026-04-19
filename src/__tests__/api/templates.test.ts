@@ -132,6 +132,52 @@ describe("POST /api/templates — happy path", () => {
   });
 });
 
+describe("POST /api/templates — wrong role returns 403", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("returns 403 for MERCHANT role", async () => {
+    mockSession.mockResolvedValue(merchantSession);
+    const { POST } = await import("@/app/api/templates/route");
+    const req = new Request("http://localhost/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "T", steps: [{ title: "S", fields: [{ label: "L", type: "TEXT", required: true }] }] }),
+    }) as any;
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("PATCH /api/templates/[id] — wrong role returns 403", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("returns 403 for MERCHANT role", async () => {
+    mockSession.mockResolvedValue(merchantSession);
+    const { PATCH } = await import("@/app/api/templates/[id]/route");
+    const req = new Request("http://localhost/api/templates/tpl-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "T", steps: [{ title: "S", fields: [{ label: "L", type: "TEXT", required: true }] }] }),
+    }) as any;
+    const res = await PATCH(req, { params: { id: "tpl-1" } });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("DELETE /api/templates/[id] — wrong role returns 403", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("returns 403 for MERCHANT role", async () => {
+    mockSession.mockResolvedValue(merchantSession);
+    const { DELETE } = await import("@/app/api/templates/[id]/route");
+    const req = new Request("http://localhost/api/templates/tpl-1", {
+      method: "DELETE",
+    }) as any;
+    const res = await DELETE(req, { params: { id: "tpl-1" } });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("POST /api/templates — no steps", () => {
   beforeEach(() => jest.clearAllMocks());
 

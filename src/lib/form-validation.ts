@@ -33,10 +33,10 @@ export function buildZodSchema(fields: FieldInput[]) {
           : z.string().max(10000);
         break;
       case "EMAIL":
-        fieldSchema = z.string().email();
+        fieldSchema = z.string().email().max(255);
         break;
       case "URL":
-        fieldSchema = z.string().url();
+        fieldSchema = z.string().url().max(2048);
         break;
       case "NUMBER":
         fieldSchema = z.number().finite();

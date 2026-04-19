@@ -151,6 +151,49 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 
 ---
 
+## Task 8: Dynamic public form
+
+**Status:** Done
+**Commit:** 1795846, fixes: 09c4020
+**Agent:** main agent
+**Summary:** `page.tsx` server component fetches `/api/templates/[id]/public`, renders "no longer available" page on 404 or passes template to `DynamicForm`. `DynamicForm` client component renders all field types from template structure, uses `ProgressBar`, EN/RU toggle, localStorage draft with `hasMountedRef` guard (prevents overwriting draft on mount), per-step Zod-free validation, file handling via separate state map, success screen on 201. Submit route updated to accept `field.id` as FormData key with `field.fieldKey` fallback (backward compatible). 11 unit tests cover localStorage utilities and validation pure functions.
+**Deviations:** Step titles not bilingual (data model has no per-lang title — documented as known limitation). 404 page is English-only (server component, no lang state).
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: 12 findings (3 major) → [logs/working/task-8/code-reviewer-1.json](logs/working/task-8/code-reviewer-1.json)
+- test-reviewer: 7 findings (approved) → [logs/working/task-8/test-reviewer-1.json](logs/working/task-8/test-reviewer-1.json)
+
+*Round 2 (after fixes):*
+- CR-1 (key placement), CR-2 (hasMountedRef), CR-4 (URL message), CR-6 (page.tsx error handling), CR-9 (test) fixed
+
+**Verification:**
+- `npx jest` → 77 passed
+- `npx tsc --noEmit` → 0 errors
+
+---
+
+## Task 9: Remove legacy onboarding system
+
+**Status:** Done
+**Commit:** 09c4020
+**Agent:** main agent
+**Summary:** Deleted 6 legacy files (token-based form, onboarding API, merchants API) and removed `/api/onboarding/submit` from middleware allowlist. `prisma/schema.prisma` Merchant model untouched per spec. TypeScript check clean; no dangling imports. `StatusChanger.tsx` merchantId fallback retained because `(dashboard)/merchants/[id]/page.tsx` is not being deleted in this wave.
+**Deviations:** None.
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: pending → [logs/working/task-9/code-reviewer-1.json](logs/working/task-9/code-reviewer-1.json)
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors
+- Deleted files no longer on filesystem
+- middleware.ts does not contain `/api/onboarding/submit`
+
+---
+
 <!-- Entries are added by agents as tasks are completed.
 
 Format is strict — use only these sections, do not add others.

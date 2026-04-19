@@ -1,0 +1,101 @@
+{
+  "status": "needs_changes",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "major",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 443,
+      "finding": "renderField returns React.ReactNode but is called inside .map() without a key on the outermost element returned from the map itself. The key prop is placed on the Field wrapper inside renderField (e.g., <Field key={field.id}>), which has no effect — React reconciles keys on elements returned directly from map, not on children nested inside them. The element returned from the map callback is the return value of renderField (e.g., <Field>), but for cases like CHECKBOX/FILE the Field component is also wrapped correctly. However, the map callback itself has no explicit key — the key is on the Field component prop which is correct only when Field is the direct child. For the `default: return null` branch there is no key at all. The pattern is fragile and will produce React key warnings if the default branch is ever hit.",
+      "suggestion": "Return elements from renderField with keys, and ensure the .map() callback wraps renderField output in a keyed fragment or pass the key down: `{currentStep.fields.map((field) => <React.Fragment key={field.id}>{renderField(...)}</React.Fragment>)}`. Alternatively, make renderField a proper component (<RenderField field={...} />) so keys can be placed cleanly on the map element."
+    },
+    {
+      "id": "CR-2",
+      "severity": "major",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 324,
+      "finding": "The saveDraft effect fires on every render where `values` changes, including the very first render before the loadDraft effect has run (because both effects run after mount in order, but the saveDraft effect fires on the initial render with an empty `values` object, overwriting any previously persisted draft before loadDraft gets a chance to restore it). The sequence on first mount is: render → effects fire in order → useEffect(loadDraft) → setValues(draft) → re-render → useEffect(saveDraft) writes draft. However, the saveDraft effect also runs during the initial render (values = {}) before loadDraft runs, which can corrupt a legitimate draft by writing an empty object.",
+      "suggestion": "Guard saveDraft with a ref flag: `const mountedRef = useRef(false); useEffect(() => { mountedRef.current = true; }, []);` and skip saveDraft on first render, or use a single combined effect that loads on mount and saves on subsequent changes. A simpler fix: add a `hasMounted` ref that is set in the loadDraft effect, and only call saveDraft when it is true."
+    },
+    {
+      "id": "CR-3",
+      "severity": "major",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 315,
+      "finding": "stepLabels is always the English step titles (pulled directly from template.steps[].title). The task spec and existing OnboardingForm pattern require step titles to follow the selected language. The `lang` toggle works for button labels and validation messages, but ProgressBar labels never change language. This is a spec deviation — task §2 states: 'Render <ProgressBar current={stepIndex} labels={stepTitles[lang]} />  (step titles from template, fallback to step index label if template title has no translation)'.",
+      "suggestion": "The current template data model only has a single `title` string per step (no i18n field). Either accept this as a known limitation and document the deviation, or fall back to a numbered label per the spec's own fallback rule: `const stepLabels = template.steps.map((s, i) => s.title || (lang === 'en' ? \`Step ${i + 1}\` : \`Шаг ${i + 1}\`))`. The real fix would require the public API to return per-step translated titles, which is out of scope for this task — document this as a deferred item."
+    },
+    {
+      "id": "CR-4",
+      "severity": "minor",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 141,
+      "finding": "URL validation accepts `http://` URLs (`!u.protocol.startsWith('http')` matches both `http:` and `https:`). The task spec §4 says: 'enforce https? prefix', but the error message shown to users says 'Enter a valid URL (https://...)' implying only HTTPS is accepted. The test at line 53 only tests `https://example.com` — there is no test asserting that `http://` is rejected.",
+      "suggestion": "If the intent is to accept both http and https (as 'https?' in the spec suggests), the error message should be updated to say 'http:// or https://'. If only HTTPS is desired (as the error message implies), change the check to: `if (u.protocol !== 'https:') errors[field.id] = t.errUrl;`. Align the spec, message, and check."
+    },
+    {
+      "id": "CR-5",
+      "severity": "minor",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 76,
+      "finding": "saveDraft accepts `Record<string, string>` but the values state is typed as `Record<string, string>` — FILE field values are never stored in the string values map (they live in the files state), so there is no risk of a non-serializable File object being saved. This is correct behavior per the spec edge case. However, there is no explicit test for 'FILE field in localStorage: file objects cannot be serialized; skip FILE field values when writing draft'. The TDD anchor in the task spec requires this test case.",
+      "suggestion": "Add a test: create a template with a FILE field, call saveDraft with a values map that does not include the FILE field's id, and assert the saved JSON does not contain a File reference. Document explicitly that FILE field exclusion from draft is by design (file state is separate)."
+    },
+    {
+      "id": "CR-6",
+      "severity": "minor",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/page.tsx",
+      "line": 27,
+      "finding": "The catch block re-throws `err` when `notFound` is false. However, when `notFound` is still false and a non-404 fetch error occurs (e.g., the fetch itself throws a network error), `err` is re-thrown correctly. But if `res.status` is a non-404, non-OK status (e.g., 500), the `throw new Error(...)` on line 25 is caught by the same try/catch, sets `notFound = false` (it remains false), and then re-throws — which is correct. The logic is sound but the `if (!notFound) throw err` guard inside the catch is misleading: `notFound` can only be set to true *before* any throw, so when the catch runs after a non-404 error, `notFound` is always false. The guard is dead code that will always re-throw.",
+      "suggestion": "Simplify the error handling: remove the `notFound` flag from the catch block. Instead structure the logic as: catch block only runs on a genuine network/parse error (not for 404 which is handled in the if branch), so always re-throw. Alternatively, set `notFound` before throwing and keep the guard — but as written `notFound` is never true when the catch fires due to a throw."
+    },
+    {
+      "id": "CR-7",
+      "severity": "minor",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 302,
+      "finding": "Single-step template edge case: when `template.steps.length === 1`, `stepIndex` is always 0, `isLastStep` is true on first render, and the Back button is correctly disabled. However, ProgressBar with a single label renders a single bubble — visually this may look odd (no progress bar connector) but is functionally correct. The implementation handles this edge case correctly with no bugs.",
+      "suggestion": "No code change required. Consider adding a comment noting single-step templates are handled — Back disabled at index 0, Submit shown immediately."
+    },
+    {
+      "id": "CR-8",
+      "severity": "minor",
+      "file": "src/app/api/templates/[id]/submit/route.ts",
+      "line": 172,
+      "finding": "The Supabase storage upload path uses `field.id` for the filename component (`${submission.id}/${field.id}-${Date.now()}-${sanitizedName}`), which is a UUID. This is fine. However, `fileBuffers` is keyed by `field.fieldKey` (line 87) but iterated with `Array.from(fileBuffers.entries())` (line 167). The lookup `allFields.find((f) => f.fieldKey === fieldKey)` on line 168 will always find the correct field. This is consistent and correct.",
+      "suggestion": "No change needed. Info only — the keying strategy (fieldKey for fileBuffers map, field.id for storage path) is consistent throughout."
+    },
+    {
+      "id": "CR-9",
+      "severity": "low",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 114,
+      "finding": "The test 'loadDraft silently returns null when localStorage.getItem throws' calls `loadDraft` twice: first inside `expect(() => loadDraft(...)).not.toThrow()` and then again directly. The `mockImplementationOnce` only covers the first call, so the second call uses the real mock (which returns null since the store is empty from beforeEach). The test passes but for the wrong reason on the second assertion — it returns null because the store is empty, not because of error handling.",
+      "suggestion": "Either use a single call with two checks: `const result = loadDraft('tpl-abc'); expect(result).toBeNull();` combined with `expect(() => loadDraft('tpl-abc')).not.toThrow()` using a fresh mock, or use `mockImplementation` (not once) and wrap in a single `expect().not.toThrow()` that also captures the return value."
+    },
+    {
+      "id": "CR-10",
+      "severity": "low",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 413,
+      "finding": "The outer form container uses `<div>` rather than `<form>`. While the submit is handled via `onClick` on a button, using a native `<form>` element would enable Enter key submission and improve accessibility (screen readers associate form controls with a form landmark). The existing OnboardingForm.tsx uses a `<form>` element for the same reason.",
+      "suggestion": "Wrap the form fields and navigation in `<form onSubmit={(e) => { e.preventDefault(); isLastStep ? handleSubmit() : handleNext(); }}>` and change button types accordingly. This matches the reference implementation pattern."
+    },
+    {
+      "id": "CR-11",
+      "severity": "info",
+      "file": "src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx",
+      "line": 34,
+      "finding": "The T object does not include `unavailableTitle` / `unavailableMsg` keys as required by the task spec §5. These strings are used in page.tsx (the 404 screen) but are hardcoded in English only. The spec requires bilingual strings for the 404 page.",
+      "suggestion": "The 404 content lives in page.tsx (a server component with no lang state), so there is no practical way to apply client-side lang toggle to it. This is a reasonable architectural decision — document it as a known limitation. If bilingual 404 is needed, move the 404 rendering into a client component or detect Accept-Language on the server."
+    },
+    {
+      "id": "CR-12",
+      "severity": "info",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 1,
+      "finding": "The test file covers the TDD anchor's validation and localStorage utility requirements well. However, three TDD anchor scenarios from the task spec are missing: (1) 'localStorage autosave — writes on field change' (requires component rendering), (2) 'localStorage autosave — restores on mount' (requires component rendering), (3) 'localStorage autosave — clears on submit' (requires component rendering and fetch mock). These integration-level tests were deferred to pure-function tests instead.",
+      "suggestion": "The existing tests adequately cover the pure logic. Consider adding RTL (React Testing Library) tests for the mount/change/submit lifecycle, or document explicitly that these cases are covered by manual verification steps in task §Verification."
+    }
+  ]
+}

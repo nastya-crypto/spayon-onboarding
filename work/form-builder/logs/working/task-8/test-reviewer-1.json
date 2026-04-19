@@ -1,0 +1,61 @@
+{
+  "status": "approved",
+  "findings": [
+    {
+      "id": "TR-1",
+      "severity": "minor",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 114,
+      "finding": "TDD anchor 'localStorage autosave — silently ignores errors' only covers loadDraft throwing on getItem. The task spec also requires saveDraft (setItem) to silently ignore errors. A separate case for setItem throwing is missing.",
+      "suggestion": "Add a test: mock localStorageMock.setItem to throw, call saveDraft, assert no error is thrown."
+    },
+    {
+      "id": "TR-2",
+      "severity": "minor",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 115,
+      "finding": "In the 'loadDraft silently returns null when localStorage.getItem throws' test, loadDraft is called twice (line 115 and 117). The first call exercises the throw mock; the second call hits the real (non-throwing) mock and returns null for an unrelated reason — an unset key — not because of error handling. This makes the assertion misleading.",
+      "suggestion": "Remove the second loadDraft call or seed a value in store before the test and keep only the throw-mock assertion. Alternatively, assert the return value of the first call (it should be null) by capturing it: `const result = loadDraft('tpl-abc'); expect(result).toBeNull();`."
+    },
+    {
+      "id": "TR-3",
+      "severity": "minor",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 45,
+      "finding": "The URL validation test only checks that 'not-a-url' is rejected but does not test that an http:// URL (non-https) is also rejected. Per the task spec, validation must enforce 'https?' prefix — but reading the spec carefully, both http and https should be accepted ('https?:' prefix). A plain http:// URL passing validation is untested, leaving ambiguity about whether the implementation enforces https-only or accepts http as well.",
+      "suggestion": "Add a test case for 'http://example.com' to clarify and document whether it is accepted or rejected. The task spec says 'enforce https? prefix', meaning both http and https are valid — confirm the implementation matches and add a passing test for http://."
+    },
+    {
+      "id": "TR-4",
+      "severity": "low",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 35,
+      "finding": "The EMAIL validation tests use a field with required: false, yet non-empty invalid values correctly trigger a format error. The case where required: true and the EMAIL field is empty is untested — it is unclear whether the implementation returns errRequired or errEmail (or both) in that scenario.",
+      "suggestion": "Add a test: EMAIL field with required: true and value '', assert errRequired is returned (not errEmail). This documents the precedence of required-check over format-check."
+    },
+    {
+      "id": "TR-5",
+      "severity": "low",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 84,
+      "finding": "The beforeEach block calls localStorageMock.clear() to flush the store, then calls jest.clearAllMocks() which resets localStorageMock.clear itself, requiring a re-mock of the clear implementation. This pattern is fragile — if the order changes or additional mocks are introduced it may silently stop clearing the store.",
+      "suggestion": "Replace the clear + re-mock pattern with a direct store flush: `Object.keys(store).forEach(k => { delete store[k]; })` inside beforeEach, and call jest.clearAllMocks() separately. No need to re-mock clear."
+    },
+    {
+      "id": "TR-6",
+      "severity": "info",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 1,
+      "finding": "TDD anchors 'localStorage autosave — writes on field change', 'restores on mount', and 'clears on submit' are described in the task as component-level behaviours (simulate field change, render DynamicForm, trigger submit). The tests cover them via exported pure utility functions (saveDraft/loadDraft/clearDraft), which is the correct and pragmatic approach given testEnvironment: 'node'. This deviation is acceptable and well-reasoned.",
+      "suggestion": "No change needed. A comment in the test file noting why component-level tests are deferred (node environment, no jsdom) would improve maintainability — the existing top comment at line 1-2 already does this adequately."
+    },
+    {
+      "id": "TR-7",
+      "severity": "info",
+      "file": "src/__tests__/DynamicForm.test.ts",
+      "line": 35,
+      "finding": "All 8 TDD anchor test cases are present and adequately covered: 4 validation tests (EMAIL reject, URL reject, required reject, optional pass) and 4 localStorage tests (saveDraft write, loadDraft restore, clearDraft remove, silent error). The mock setup for localStorage in a node environment is correct and idiomatic.",
+      "suggestion": "No changes required for baseline coverage."
+    }
+  ]
+}

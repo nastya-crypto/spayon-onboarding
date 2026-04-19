@@ -1,0 +1,95 @@
+{
+  "status": "fail",
+  "checks": [
+    {
+      "item": "Completeness: Merchant model preservation covered in Data Models",
+      "result": "pass",
+      "note": "Line 222: 'Retain: Merchant model remains in prisma/schema.prisma unchanged — not modified or deleted.'"
+    },
+    {
+      "item": "Completeness: T5 description mentions AC7 UI validation (cannot save without step+field) and confirm dialog",
+      "result": "pass",
+      "note": "T5 explicitly states 'Editor enforces AC7: save is blocked if there are no steps or any step has no fields' and 'List page includes a confirm dialog before deletion (AC10).'"
+    },
+    {
+      "item": "Completeness: T9 has Files to delete section listing all 6 files",
+      "result": "pass",
+      "note": "T9 lists exactly 6 files under Files to delete: create-link/route.ts, onboarding/submit/route.ts, [token]/page.tsx, [token]/OnboardingForm.tsx, merchants/route.ts, merchants/[id]/status/route.ts."
+    },
+    {
+      "item": "Completeness: T7 covers null templateId case and href XSS validation",
+      "result": "pass",
+      "note": "T7 description: 'When submission.templateId is null (deleted template), show a note \"Template was deleted\"' and 'href must be validated to http:// or https:// only before rendering to prevent javascript: URI XSS.'"
+    },
+    {
+      "item": "Completeness: T6 covers StatsCard changes",
+      "result": "pass",
+      "note": "T6: 'StatsCard counts are switched from Merchant status counts to SubmissionStatus counts (NEW/IN_REVIEW/APPROVED/REJECTED).'"
+    },
+    {
+      "item": "Completeness: email field is nullable in Data Models Prisma schema",
+      "result": "pass",
+      "note": "Data Models schema shows: 'email String? // nullable: extracted from first EMAIL field if present'"
+    },
+    {
+      "item": "Completeness: Decision 11 covers email nullability",
+      "result": "pass",
+      "note": "Decision 11 fully explains: email is String?, extracted from first EMAIL-type field if present, otherwise null, with rationale and alternatives."
+    },
+    {
+      "item": "Security: Decision 9 specifies role === 'ADMIN' check",
+      "result": "pass",
+      "note": "Decision 9: 'All admin API routes check session.user.role === \"ADMIN\" in addition to session existence. Return 403 if role is absent or mismatched.'"
+    },
+    {
+      "item": "Security: Decision 10 specifies Zod .max() limits",
+      "result": "pass",
+      "note": "Decision 10 lists explicit limits: name/label .max(255), placeholder .max(500), value .max(10000), number z.number().finite()."
+    },
+    {
+      "item": "Security: SVG removed from MIME allowlist in Decision 6",
+      "result": "pass",
+      "note": "Decision 6: 'Allowed MIME types: image/jpeg, image/png, application/pdf (SVG excluded — can carry inline JS, unsafe when served directly).'"
+    },
+    {
+      "item": "Security: Decision 7 specifies exact middleware paths (not broad /api/templates)",
+      "result": "pass",
+      "note": "Decision 7: 'Exact public paths added... The broader /api/templates prefix must NOT be allowlisted — that would bypass auth for all admin management routes.'"
+    },
+    {
+      "item": "Security: T7 specifies href must be http/https only",
+      "result": "pass",
+      "note": "T7: 'href must be validated to http:// or https:// only before rendering to prevent javascript: URI XSS.'"
+    },
+    {
+      "item": "Security: T4 specifies email excluded from list endpoint",
+      "result": "pass",
+      "note": "T4: 'email excluded from list response (returned only in detail).'"
+    },
+    {
+      "item": "Security: Supabase bucket visibility marked [PENDING USER APPROVAL]",
+      "result": "pass",
+      "note": "Decision 6 ends with '→ [PENDING USER APPROVAL]' for the public vs signed URLs question."
+    },
+    {
+      "item": "Mirage: T3 Files to read points to src/app/api/onboarding/submit/route.ts instead of src/lib/supabase.ts for upload pattern",
+      "result": "pass",
+      "note": "T3 Files to read includes 'src/app/api/onboarding/submit/route.ts' (the upload pattern source). Note: src/lib/supabase.ts is also still listed, but the primary upload pattern reference is correct."
+    },
+    {
+      "item": "Mirage: T3 mentions src/lib/form-validation.ts, and some task explicitly owns its creation (Files to modify)",
+      "result": "fail",
+      "note": "T3 lists 'src/lib/form-validation.ts (new, created in T1 or T2)' in Files to read, but neither T1 nor T2 lists it in their Files to modify. No task formally owns creating this file — it is referenced as a dependency but has no assigned creator task."
+    },
+    {
+      "item": "Template: Decisions 7 and 8 have 'Alternatives considered'",
+      "result": "pass",
+      "note": "Decision 7: 'Alternatives considered: Allowlisting /api/templates broadly...' Decision 8: 'Alternatives considered: Keeping old routes as redirects...'"
+    },
+    {
+      "item": "Template: T13 and T14 have 'Files to read: N/A'",
+      "result": "pass",
+      "note": "T13: 'Files to read: N/A (runs tests and checks browser)'. T14: 'Files to read: N/A'."
+    }
+  ]
+}

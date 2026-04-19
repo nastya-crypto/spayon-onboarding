@@ -1,0 +1,41 @@
+{
+  "reviewer": "code-reviewer",
+  "task": 4,
+  "round": 1,
+  "status": "approved",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "low",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 46,
+      "description": "Double cast smell: `submission.status` is cast `as SubmissionStatus` on line 46, but it came from Prisma which already types it as `SubmissionStatus`. The cast is harmless but signals the type annotation on the model variable could be tightened (e.g. type the return of `findUnique` more precisely or use a `satisfies` narrowing).",
+      "suggestion": "Remove the redundant `as SubmissionStatus` cast; Prisma's generated return type already carries the enum. If inference gaps exist due to mocking, add a typed wrapper instead."
+    },
+    {
+      "id": "CR-2",
+      "severity": "low",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 28,
+      "description": "Body is parsed with a loose cast `(await req.json()) as { status?: string }`. There is no try/catch around `req.json()`, so a malformed JSON body (e.g. empty body, non-JSON Content-Type) will throw an unhandled error and produce a 500 instead of a 400.",
+      "suggestion": "Wrap `await req.json()` in a try/catch and return 400 with `{ error: 'Invalid JSON body' }` on parse failure. This is consistent with Zod-validated routes elsewhere in the project."
+    },
+    {
+      "id": "CR-3",
+      "severity": "info",
+      "file": "src/app/api/submissions/route.ts",
+      "line": 8,
+      "description": "The `_req` parameter is typed as `Request` (native fetch API) instead of `NextRequest`. The other two routes correctly use `NextRequest`. This inconsistency is harmless today but could cause issues if any request properties specific to NextRequest are needed later.",
+      "suggestion": "Change `_req: Request` to `_req: NextRequest` and add `import { NextRequest } from 'next/server'` for consistency."
+    },
+    {
+      "id": "CR-4",
+      "severity": "info",
+      "file": "src/app/api/submissions/[id]/route.ts",
+      "line": 1,
+      "description": "Missing `export const dynamic = 'force-dynamic'` pattern is present (good), but there is no error boundary around the Prisma call. An unexpected DB error would bubble up as an unhandled rejection producing a generic 500. The list and status routes have the same gap.",
+      "suggestion": "Wrap Prisma calls in try/catch blocks and return `{ error: 'Internal server error' }` with status 500 for consistent error responses. This also makes the error surface easier to monitor."
+    }
+  ],
+  "summary": "The implementation is clean and fully aligned with the task spec. Auth uses `getServerSession(authOptions)` as required (not `getToken`). The list endpoint uses an explicit Prisma `select` that provably excludes `email`. The detail endpoint uses `include: { responses: true }` which correctly returns all responses including orphans (fieldId=null) with no filtering. The `VALID_TRANSITIONS` map covers all four enum states with the correct allowed targets. All three acceptance criteria groups are satisfied. Minor issues: missing try/catch on JSON body parsing (could produce 500 on bad input), one redundant type cast, and a minor type inconsistency (`Request` vs `NextRequest`). None of these block approval."
+}

@@ -2,35 +2,35 @@
 
 import { useState } from "react";
 
-type MerchantRow = {
+type SubmissionRow = {
   id: string;
-  businessName: string;
+  companyName: string;
+  templateName: string;
   status: "NEW" | "IN_REVIEW" | "APPROVED" | "REJECTED";
   createdAt: string;
-  user: { email: string };
 };
 
-const STATUS_LABELS: Record<MerchantRow["status"], string> = {
-  NEW: "Новый",
-  IN_REVIEW: "На проверке",
-  APPROVED: "Одобрен",
-  REJECTED: "Отклонён",
+const STATUS_LABELS: Record<SubmissionRow["status"], string> = {
+  NEW: "New",
+  IN_REVIEW: "In Review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
 };
 
-const STATUS_STYLES: Record<MerchantRow["status"], string> = {
+const STATUS_STYLES: Record<SubmissionRow["status"], string> = {
   NEW: "bg-blue-100 text-blue-700",
   IN_REVIEW: "bg-yellow-100 text-yellow-700",
   APPROVED: "bg-green-100 text-green-700",
   REJECTED: "bg-red-100 text-red-700",
 };
 
-export function MerchantsTable({ merchants }: { merchants: MerchantRow[] }) {
+export function SubmissionsTable({ submissions }: { submissions: SubmissionRow[] }) {
   const [search, setSearch] = useState("");
 
-  const filtered = merchants.filter(
-    (m) =>
-      m.businessName.toLowerCase().includes(search.toLowerCase()) ||
-      m.user.email.toLowerCase().includes(search.toLowerCase())
+  const filtered = submissions.filter(
+    (s) =>
+      s.companyName.toLowerCase().includes(search.toLowerCase()) ||
+      s.templateName.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -38,7 +38,7 @@ export function MerchantsTable({ merchants }: { merchants: MerchantRow[] }) {
       <div className="p-5 border-b border-gray-100">
         <input
           type="text"
-          placeholder="Поиск по компании или email..."
+          placeholder="Search by company or template..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-sm px-4 py-2 text-sm text-black border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -51,33 +51,33 @@ export function MerchantsTable({ merchants }: { merchants: MerchantRow[] }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <p className="text-base font-medium">Пока нет заявок</p>
-          <p className="text-sm mt-1">Создайте ссылку для клиента, чтобы начать онбординг</p>
+          <p className="text-base font-medium">No submissions yet</p>
+          <p className="text-sm mt-1">Submit a form to see it here</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Компания</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Email</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Статус</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Дата подачи</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Действия</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Company</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Template</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Date</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filtered.map((merchant) => (
-                <tr key={merchant.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{merchant.businessName}</td>
-                  <td className="px-6 py-4 text-gray-600">{merchant.user.email}</td>
+              {filtered.map((submission) => (
+                <tr key={submission.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-gray-900">{submission.companyName}</td>
+                  <td className="px-6 py-4 text-gray-600">{submission.templateName}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[merchant.status]}`}>
-                      {STATUS_LABELS[merchant.status]}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[submission.status]}`}>
+                      {STATUS_LABELS[submission.status]}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-gray-600">
-                    {new Date(merchant.createdAt).toLocaleDateString("ru-RU", {
+                    {new Date(submission.createdAt).toLocaleDateString("en-GB", {
                       day: "2-digit",
                       month: "2-digit",
                       year: "numeric",
@@ -85,10 +85,10 @@ export function MerchantsTable({ merchants }: { merchants: MerchantRow[] }) {
                   </td>
                   <td className="px-6 py-4">
                     <a
-                      href={`/merchants/${merchant.id}`}
+                      href={`/dashboard/submissions/${submission.id}`}
                       className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
                     >
-                      Открыть
+                      Open
                     </a>
                   </td>
                 </tr>

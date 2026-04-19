@@ -1,0 +1,126 @@
+{
+  "validator": "tech-spec-validator",
+  "status": "pass",
+  "findings": [
+    {
+      "severity": "info",
+      "section": "Frontmatter",
+      "item": "All required fields present",
+      "detail": "Fields created (2026-04-17), status (draft), branch (main), size (L) are all present and valid."
+    },
+    {
+      "severity": "info",
+      "section": "Required Sections",
+      "item": "All required sections present",
+      "detail": "Solution, Architecture, Decisions, Data Models, Dependencies, Testing Strategy, Agent Verification Plan, Risks, User-Spec Deviations, Acceptance Criteria, Implementation Tasks all present."
+    },
+    {
+      "severity": "info",
+      "section": "Task Structure",
+      "item": "All tasks have required fields",
+      "detail": "All 14 tasks include Description, Skill, Reviewers, and Files to read. Tasks with code changes include Files to modify."
+    },
+    {
+      "severity": "warning",
+      "section": "Task Structure",
+      "item": "Task 13 (Pre-deploy QA) and Task 14 (Deploy) missing 'Files to read'",
+      "detail": "Template requires 'Files to read' in every task. Tasks 13 and 14 have no 'Files to read' field. Template examples show this field as required. These tasks may not need source files but the field should be present (even as 'None')."
+    },
+    {
+      "severity": "info",
+      "section": "Task Descriptions",
+      "item": "Descriptions describe WHAT/WHY, not HOW",
+      "detail": "All task descriptions focus on outcomes and purpose rather than step-by-step instructions. No line numbers referenced. Descriptions are appropriately scoped."
+    },
+    {
+      "severity": "warning",
+      "section": "Task Descriptions",
+      "item": "Tasks 2, 3, 4, 5, 8 descriptions contain implementation HOW details",
+      "detail": "Tasks 2-4 list specific endpoint signatures (e.g. 'GET /api/templates', 'POST /api/templates', valid transitions: NEW→IN_REVIEW→APPROVED|REJECTED'). Task 5 describes UI behavior in procedural terms ('Editor: template name input, step list with Add Step / ↑↓ / Delete'). Task 8 specifies implementation details ('on every field change write form-draft-[templateId] → JSON'). Tech-spec task descriptions should describe WHAT/WHY, not HOW — the detailed HOW belongs in decomposed task files."
+    },
+    {
+      "severity": "info",
+      "section": "Audit Wave",
+      "item": "Audit Wave present with exactly 3 tasks",
+      "detail": "Tasks 10 (Code Audit), 11 (Security Audit), 12 (Test Audit) are present, all with 'reviewers: none' and correct skills (code-reviewing, security-auditor, test-master)."
+    },
+    {
+      "severity": "info",
+      "section": "Final Wave",
+      "item": "QA task present",
+      "detail": "Task 13 (Pre-deploy QA) uses skill 'pre-deploy-qa' with 'reviewers: none'."
+    },
+    {
+      "severity": "warning",
+      "section": "Final Wave",
+      "item": "Deploy task uses skill 'deploy-pipeline' — verify this is correct",
+      "detail": "The template shows 'infrastructure' for the Deploy task. The tech-spec uses 'deploy-pipeline'. The available skills list includes 'deploy-pipeline' as a registered skill, so this appears intentionally correct. No 'post-deploy-qa' task is present — if post-deploy verification is applicable (Railway auto-deploy to production), a post-deploy-qa task should be considered."
+    },
+    {
+      "severity": "info",
+      "section": "Skills and Reviewers",
+      "item": "All skill and reviewer values use valid agent names",
+      "detail": "Skills used: code-writing (T1–T9), code-reviewing (T10), security-auditor (T11), test-master (T12), pre-deploy-qa (T13), deploy-pipeline (T14). Reviewers used: code-reviewer, security-auditor, test-reviewer, none. All valid."
+    },
+    {
+      "severity": "info",
+      "section": "Wave Dependencies",
+      "item": "Wave dependencies correctly stated",
+      "detail": "Wave 2 tasks depend on Task 1 (Wave 1). Wave 3 header states 'T5/T6/T7 depend on T2+T4, T8 depends on T3'. Wave 4 depends on all Wave 3 tasks. Audit Wave and Final Wave implicitly follow Wave 4 (order-based). Dependencies are coherent."
+    },
+    {
+      "severity": "warning",
+      "section": "Wave Dependencies",
+      "item": "Wave 3 header omits explicit dependency on Task 3 for T5/T6/T7",
+      "detail": "Header reads 'T5/T6/T7 depend on T2+T4, T8 depends on T3'. However T5 (template editor) calls template APIs from T2, and T6/T7 use submission APIs from T4 — T3 (public form API) is not needed by T5/T6/T7. This is logically correct but worth noting: T9 (legacy cleanup) depends on Wave 3 being done; the spec correctly places T9 in Wave 4 after all Wave 3 tasks."
+    },
+    {
+      "severity": "info",
+      "section": "Decisions Format",
+      "item": "All decisions have required fields",
+      "detail": "All 8 decisions include Decision, Rationale, and Alternatives considered fields."
+    },
+    {
+      "severity": "warning",
+      "section": "Decisions Format",
+      "item": "Decisions 7 and 8 missing Alternatives considered",
+      "detail": "Decision 7 (Middleware) and Decision 8 (Legacy cleanup in Wave 4) do not include an 'Alternatives considered' field. All decisions should include this field per the template requirement, even if the answer is 'None considered'."
+    },
+    {
+      "severity": "info",
+      "section": "Decisions Format",
+      "item": "Decisions reference user-spec or marked [TECHNICAL]",
+      "detail": "Decisions 1–4 reference user-spec IDs (US-4, US-10, US-12, US-13, US-8). Decisions 5, 6, 7 are marked [TECHNICAL]. Decision 8 references user-spec migration decision. Format requirement met."
+    },
+    {
+      "severity": "info",
+      "section": "User-Spec Deviations",
+      "item": "Non-technical deviations correctly marked [PENDING USER APPROVAL]",
+      "detail": "Two deviations marked [PENDING USER APPROVAL]: 'form-uploads Supabase bucket' and 'Orphan FieldResponse rendering'. Technical deviations (fieldKey, isProtected, PATCH strategy, FILE upload restrictions) correctly marked [TECHNICAL]."
+    },
+    {
+      "severity": "info",
+      "section": "No Placeholders",
+      "item": "No TODO, TBD, or template placeholder text found",
+      "detail": "No instances of TODO, TBD, {Feature Name}, YYYY-MM-DD, or other template placeholder text remain in the spec."
+    },
+    {
+      "severity": "warning",
+      "section": "Architecture — Shared Resources",
+      "item": "Rate limiter listed as in-memory module-level Map but no multi-instance warning",
+      "detail": "Rate limiter uses an in-memory Map in src/lib/rate-limit.ts. In a multi-instance Railway deployment this would not be shared across instances. The Risks section does not mention this. Consider adding a risk entry or noting the single-instance assumption explicitly."
+    },
+    {
+      "severity": "info",
+      "section": "Testing Strategy",
+      "item": "Testing strategy appropriate for size L feature",
+      "detail": "Unit tests defined with 9 concrete scenarios. Integration tests and E2E tests explicitly waived with user-spec agreement documented. Appropriate for this project's no-test-infrastructure constraint."
+    },
+    {
+      "severity": "warning",
+      "section": "Agent Verification Plan",
+      "item": "Verification plan is minimal — no specific smoke checks at spec level",
+      "detail": "The Agent Verification Plan says 'No MCP tools required' and defers all verification to user. The template states 'Per-task smoke checks are specified in each task's Verify-smoke / Verify-user fields'. Tasks 5, 6, 7, 8 do include Verify-user fields. Tasks 1–4 and 9 have no Verify-smoke or Verify-user fields — acceptable for backend/schema tasks but worth noting."
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "batch": 1,
+  "iteration": 1,
+  "status": "pass",
+  "findings": [
+    {
+      "task": 3,
+      "severity": "warning",
+      "section": "Frontmatter / depends_on",
+      "issue": "depends_on lists only [1] but Task 3 consumes `src/lib/form-validation.ts` created by Task 2. If Task 3 executes before Task 2 completes, the import will not exist. A fallback stub is mentioned in Details, but the formal dependency is missing.",
+      "fix": "Add 2 to depends_on: `depends_on: [1, 2]`. Remove the 'if T2 is not yet complete, stub inline' note — it becomes unnecessary once the dependency is explicit."
+    },
+    {
+      "task": 3,
+      "severity": "info",
+      "section": "Description",
+      "issue": "Description is written in Russian while Tasks 1, 2, 5 are in English. Inconsistent language across the batch.",
+      "fix": "Translate the Description and What to do sections to English for consistency with other tasks in the batch."
+    },
+    {
+      "task": 4,
+      "severity": "info",
+      "section": "Description",
+      "issue": "Description and What to do sections are written in Russian while Tasks 1, 2, 5 are in English.",
+      "fix": "Translate Description and What to do sections to English for consistency."
+    },
+    {
+      "task": 5,
+      "severity": "info",
+      "section": "Frontmatter / depends_on",
+      "issue": "depends_on: [2, 4] includes Task 4 (submissions API), but Task 5 (templates admin pages) does not call any submissions endpoints — it only uses template CRUD from Task 2. The Task 4 dependency appears to be unnecessary.",
+      "fix": "Review whether Task 5 actually needs submissions data. If not, change to depends_on: [2]. If a submission count is shown on the templates list page, document the reason explicitly in Description."
+    },
+    {
+      "task": 1,
+      "severity": "info",
+      "section": "TDD Anchor",
+      "issue": "TDD Anchor states 'No unit tests for this task' which is appropriate for pure schema/seed work, but the explanation could be misread as a blanket exemption. The tech-spec Testing Strategy supports this exception — it is well-grounded.",
+      "fix": "No change needed. The existing explanation is clear and justified."
+    },
+    {
+      "task": 2,
+      "severity": "info",
+      "section": "Context Files",
+      "issue": "Context Files does not list `work/form-builder/decisions.md` even though the task references Decision 3, Decision 9, Decision 10, and the PATCH template strategy deviation by name. The tech-spec is listed, but decisions.md provides the canonical decision log.",
+      "fix": "Add `[decisions.md](../decisions.md)` to Context Files for completeness (same as Tasks 1 and 4 which do include it)."
+    },
+    {
+      "task": 3,
+      "severity": "info",
+      "section": "Context Files",
+      "issue": "Context Files includes user-spec.md and tech-spec.md but does not list `decisions.md`, which contains Decision 6 (file upload rules), Decision 7 (middleware exact paths), and Decision 5 (rate limit key format) — all referenced in the ACs.",
+      "fix": "Add `[decisions.md](../decisions.md)` to Context Files."
+    }
+  ]
+}

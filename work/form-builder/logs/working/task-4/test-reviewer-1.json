@@ -1,0 +1,67 @@
+{
+  "reviewer": "test-reviewer",
+  "task": 4,
+  "round": 1,
+  "status": "approved",
+  "findings": [
+    {
+      "id": "TR-1",
+      "severity": "info",
+      "file": "src/__tests__/api/submissions/route.test.ts",
+      "line": 54,
+      "description": "TDD Anchor `test_get_list_excludes_email`: the test correctly verifies that `data.submissions[0]` does not have an `email` property. However, it relies on the mock returning an object without `email` — it does not assert that the Prisma `select` call explicitly excludes `email`. A stronger assertion would also check that `mockFindMany` was called with a `select` object that does NOT contain `email: true`.",
+      "suggestion": "Add: `expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({ select: expect.not.objectContaining({ email: true }) }))` — though this is enhancement-level, not a blocker."
+    },
+    {
+      "id": "TR-2",
+      "severity": "info",
+      "file": "src/__tests__/api/submissions/[id]/route.test.ts",
+      "line": 87,
+      "description": "TDD Anchor `test_get_detail_includes_orphan_responses`: the test verifies that `data.responses` has length 2 and that the orphan (fieldId=null) is present. This is a solid test. One minor gap: it does not verify that filtering is NOT applied — i.e., a naive implementation that only returns responses where `fieldId != null` would fail this test correctly, which is the right behavior.",
+      "suggestion": "No change needed. The existing assertion is sufficient to catch the common mistake of filtering out null fieldIds."
+    },
+    {
+      "id": "TR-3",
+      "severity": "low",
+      "file": "src/__tests__/api/submissions/[id]/status/route.test.ts",
+      "line": 150,
+      "description": "TDD Anchor `test_patch_status_unknown_value`: the test mocks `findUnique` to return a submission even for an unknown status value. However, the implementation correctly returns 400 BEFORE reaching `findUnique` (the enum validation happens first on line 31-34 of the route). This means `mockFindUnique` is set up but never called in this test path. The test passes correctly, but the setup is misleading about code execution order.",
+      "suggestion": "Remove the `mockFindUnique.mockResolvedValue(...)` line from `test_patch_status_unknown_value` to accurately reflect that `findUnique` is never called for unknown status values. Also consider adding: `expect(mockFindUnique).not.toHaveBeenCalled()` as a positive assertion."
+    },
+    {
+      "id": "TR-4",
+      "severity": "info",
+      "file": "src/__tests__/api/submissions/[id]/status/route.test.ts",
+      "line": 1,
+      "description": "Coverage of `IN_REVIEW→REJECTED` and `IN_REVIEW→APPROVED` valid transitions is present (lines 97-130), as is coverage of `APPROVED→*` terminal state (lines 167-180) and self-transition `IN_REVIEW→IN_REVIEW` (lines 182-195). The test suite covers more than the minimum TDD anchors, which is positive.",
+      "suggestion": "No action needed. Additional coverage of edge cases beyond anchors is good practice."
+    },
+    {
+      "id": "TR-5",
+      "severity": "info",
+      "file": "src/__tests__/api/submissions/route.test.ts",
+      "line": 1,
+      "description": "The mock for `@/lib/db` declares `findUnique` and `update` on the `formSubmission` object even though `route.ts` only uses `findMany`. This is not harmful but adds unnecessary noise to the mock setup.",
+      "suggestion": "Trim the mock to only declare `findMany` for the list route test file. This makes the mock intent clearer."
+    }
+  ],
+  "tdd_anchors_coverage": {
+    "test_get_list_forbidden_non_admin": { "file": "src/__tests__/api/submissions/route.test.ts", "line": 30, "status": "covered" },
+    "test_get_list_excludes_email": { "file": "src/__tests__/api/submissions/route.test.ts", "line": 54, "status": "covered" },
+    "test_get_list_ordered_by_created_at_desc": { "file": "src/__tests__/api/submissions/route.test.ts", "line": 76, "status": "covered" },
+    "test_get_detail_includes_orphan_responses": { "file": "src/__tests__/api/submissions/[id]/route.test.ts", "line": 87, "status": "covered" },
+    "test_get_detail_includes_email": { "file": "src/__tests__/api/submissions/[id]/route.test.ts", "line": 66, "status": "covered" },
+    "test_get_detail_not_found": { "file": "src/__tests__/api/submissions/[id]/route.test.ts", "line": 53, "status": "covered" },
+    "test_patch_status_valid_transition": { "file": "src/__tests__/api/submissions/[id]/status/route.test.ts", "line": 79, "status": "covered" },
+    "test_patch_status_invalid_transition": { "file": "src/__tests__/api/submissions/[id]/status/route.test.ts", "line": 133, "status": "covered" },
+    "test_patch_status_unknown_value": { "file": "src/__tests__/api/submissions/[id]/status/route.test.ts", "line": 150, "status": "covered" },
+    "test_patch_status_forbidden": { "file": "src/__tests__/api/submissions/[id]/status/route.test.ts", "line": 46, "status": "covered" }
+  },
+  "test_run": {
+    "suites": 3,
+    "tests": 21,
+    "passed": 21,
+    "failed": 0
+  },
+  "summary": "All 10 TDD Anchor tests from the task file are covered and passing. The test suite runs 21 tests across 3 files with 100% pass rate. Mocking strategy is correct: `next-auth`, `@/lib/auth/auth-options`, and `@/lib/db` are all properly mocked before dynamic imports, avoiding module caching issues. Minor observations: one test (`test_patch_status_unknown_value`) sets up a `findUnique` mock that is never called due to early-return validation, and the list route mock includes unused methods. These are cosmetic issues that do not affect test correctness. The assertion quality is good — tests check both HTTP status codes and response body content. No missing coverage for required transitions or auth scenarios."
+}

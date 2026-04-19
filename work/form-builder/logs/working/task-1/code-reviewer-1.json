@@ -1,0 +1,57 @@
+{
+  "reviewer": "code-reviewer",
+  "task": 1,
+  "round": 1,
+  "status": "approved",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "low",
+      "file": "prisma/schema.prisma",
+      "line": 196,
+      "description": "The `isProtected` field comment is truncated compared to the tech-spec definition. Tech-spec specifies `// true = cannot be deleted (Company Name)` but the implementation only has the bare field with no inline comment.",
+      "suggestion": "Add `// true = cannot be deleted (Company Name)` as an inline comment on the `isProtected` field, matching the tech-spec Data Models exactly. This aids future readers and downstream task implementors who enforce the invariant."
+    },
+    {
+      "id": "CR-2",
+      "severity": "low",
+      "file": "prisma/schema.prisma",
+      "line": 188,
+      "description": "`FormField.fieldKey` has no uniqueness constraint within a step. The field is described as a 'URL-safe key used in localStorage and value mapping', implying it functions as a semantic identifier. Duplicate fieldKeys within the same step would silently produce incorrect localStorage mapping and broken value extraction at submit time.",
+      "suggestion": "Consider adding `@@unique([stepId, fieldKey])` to `FormField`. The tech-spec does not mandate this, so if it is intentionally omitted (e.g., to allow reuse of common keys across steps), document the reasoning explicitly. Otherwise, adding the constraint prevents a subtle data-integrity bug in downstream tasks."
+    },
+    {
+      "id": "CR-3",
+      "severity": "info",
+      "file": "prisma/seed.ts",
+      "line": null,
+      "description": "Seed idempotency for the FormTemplate is checked by name (`findFirst({ where: { name: 'Standard Onboarding' } })`). If a user renames the template in production and reruns seed, a second template will be created. This is acceptable for a single-admin MVP but differs from the admin user check which uses the unique `email` field.",
+      "suggestion": "No change required for current scope. If the project ever runs seed in a CI/CD pipeline against a production DB, consider adding a stable sentinel (e.g., a `isSystemDefault Boolean` flag) to reliably detect the seeded template regardless of name edits."
+    },
+    {
+      "id": "CR-4",
+      "severity": "info",
+      "file": "src/app/(onboarding)/onboarding/[token]/page.tsx",
+      "line": 9,
+      "description": "`@ts-ignore` suppresses a TypeScript error on `prisma.onboardingToken.findUnique` because the `OnboardingToken` model was deleted from the schema. The suppression is correctly paired with `// TODO(task-9)` and the `eslint-disable-next-line` directive for the ban-ts-comment rule.",
+      "suggestion": "Usage is appropriate as a temporary bridge pending Task 9 deletion of this file. No change required."
+    },
+    {
+      "id": "CR-5",
+      "severity": "info",
+      "file": "src/app/api/onboarding/create-link/route.ts",
+      "line": 25,
+      "description": "Same `@ts-ignore` pattern as CR-4 for `prisma.onboardingToken.create`. Correctly documented.",
+      "suggestion": "No change required. Task 9 will delete this file."
+    },
+    {
+      "id": "CR-6",
+      "severity": "info",
+      "file": "src/app/api/onboarding/submit/route.ts",
+      "line": 28,
+      "description": "Same `@ts-ignore` pattern as CR-4 for `prisma.onboardingToken.updateMany`. Correctly documented.",
+      "suggestion": "No change required. Task 9 will delete this file."
+    }
+  ],
+  "summary": "Schema implementation is correct and matches the tech-spec Data Models exactly. All 5 models are present with correct field names, types, nullability, relation decorators, and onDelete behaviors. Both enums are complete. The migration SQL is consistent with the schema diff. Seed is properly restructured for idempotency — the early-return issue called out in the task spec was correctly resolved. The three @ts-ignore usages are appropriate temporary suppressions on files scheduled for deletion in Task 9, each clearly annotated. Two minor findings: (1) the `isProtected` inline comment is missing vs the spec, and (2) `fieldKey` lacks a `@@unique([stepId, fieldKey])` constraint which may cause silent data bugs in downstream tasks. Neither blocks approval."
+}

@@ -1,0 +1,84 @@
+{
+  "validator": "security-auditor",
+  "status": "fail",
+  "findings": [
+    {
+      "severity": "critical",
+      "owasp": "A03",
+      "item": "No per-field payload size limits on public submit endpoint",
+      "detail": "FieldResponse.value is stored as @db.Text with no maximum length enforced. The tech-spec mentions Zod for validation but never defines .max() constraints per FieldType (e.g., TEXT, TEXTAREA, URL, EMAIL). A malicious actor can POST a TEXT field with megabytes of content, causing DB write amplification, OOM during Zod parse, or denial-of-service. Task 3 must specify explicit per-type character limits (e.g., TEXT: 1000, TEXTAREA: 10000, EMAIL: 254, URL: 2048) and a total FormData payload ceiling (e.g., reject requests above 50 MB before any parsing)."
+    },
+    {
+      "severity": "critical",
+      "owasp": "A03",
+      "item": "MIME type allowlist and max file size for FILE-type uploads not enforced in spec",
+      "detail": "Decision 6 documents allowed MIME types (image/jpeg, image/png, image/svg+xml, application/pdf) and a 10 MB cap, but these constraints appear only in a decision note — they are not surfaced as explicit requirements in Task 3's description or in the Acceptance Criteria. Without an explicit requirement, an implementer could skip the MIME check and accept arbitrary file types (e.g., .exe, .html, .js), enabling malware distribution or stored XSS via uploaded HTML served from Supabase. The accepted MIME list should also exclude image/svg+xml, since SVGs can contain inline JavaScript that executes when opened directly in a browser tab. Recommendation: move MIME allowlist + size cap into Task 3 requirements and Acceptance Criteria; replace image/svg+xml with a safer alternative or serve SVGs with Content-Disposition: attachment."
+    },
+    {
+      "severity": "critical",
+      "owasp": "A01",
+      "item": "Admin route role check is unspecified — authenticated vs ADMIN role",
+      "detail": "The tech-spec says admin routes 'require admin auth' and references auth-options.ts, but never specifies that the role check must be token.role === 'ADMIN'. The project schema has ADMIN, MERCHANT, and REVIEWER roles. If the implementation only checks session existence (!!token) rather than the ADMIN role, a MERCHANT- or REVIEWER-role user could create, edit, or delete templates and read all form submissions. Task 2 and Task 4 must explicitly state: 'Return 403 if token.role !== ADMIN.' This check must also appear as an Acceptance Criterion."
+    },
+    {
+      "severity": "critical",
+      "owasp": "A07",
+      "item": "IP extraction for rate limiting is unspecified — bypass risk on Railway proxy",
+      "detail": "Decision 5 states rate limit key is submit:${templateId}:${ip} and mentions x-forwarded-for, but the extraction logic is only described as req.headers.get('x-forwarded-for')?.split(',')[0] ?? req.ip in a parenthetical. This is not a formal requirement. Railway terminates TLS at the edge and forwards the real client IP in X-Forwarded-For; req.ip will return the Railway internal proxy IP, meaning all clients share one rate limit bucket — all are blocked after 5 submissions rather than per-client enforcement. The x-forwarded-for header can also be spoofed unless Railway strips client-supplied values. Task 3 must specify: (1) always use x-forwarded-for first value, trimmed; (2) confirm Railway does not forward a client-supplied X-Forwarded-For (document this as an accepted trust assumption); (3) if Railway strips it, document the fallback behavior."
+    },
+    {
+      "severity": "critical",
+      "owasp": "A03",
+      "item": "Stored XSS — FieldResponse values rendering not specified as safe",
+      "detail": "Task 7 (submission detail page) renders FieldResponse.value for each field type without specifying how values are rendered in React. Specific risks: (1) URL-type fields rendered as <a href={value}> without protocol validation allow javascript: URIs — when an admin clicks the link, arbitrary JS executes in the admin context, which has full dashboard access; (2) FILE-type fields render a URL extracted from JSON in value — if the JSON url property is not validated as an https:// URL before use as href, the same javascript: injection applies; (3) any use of dangerouslySetInnerHTML with raw field values would allow full HTML injection. Task 7 must explicitly require: all values rendered as React text nodes or validated hrefs only; URL-type hrefs validated with new URL() and protocol restricted to http/https before rendering; FILE JSON url extracted safely with a try/catch and validated as https://."
+    },
+    {
+      "severity": "warning",
+      "owasp": "A05",
+      "item": "Supabase form-uploads bucket visibility not specified",
+      "detail": "Decision 6 states file URLs are stored as JSON in FieldResponse.value and rendered as download links in the admin submission detail page. The tech-spec does not specify whether the form-uploads bucket is public or private. If public, any person who guesses or obtains the URL can download submitted documents (passports, registration certificates, etc.) without authentication — a serious privacy exposure. If private, signed URLs must be generated at read time, which adds complexity not addressed in any task. Recommendation: explicitly decide bucket visibility in Decision 6; if private, add signed URL generation to Task 7 or Task 3 description; if public, document the privacy trade-off and consider adding a random entropy component to the storage path beyond {submissionId}/{fieldId}-{timestamp}-{sanitizedFilename} (which is predictable)."
+    },
+    {
+      "severity": "warning",
+      "owasp": "A04",
+      "item": "No idempotency key — double-submit creates duplicate FormSubmission records",
+      "detail": "The new system removes the OnboardingToken single-use atomicity guarantee without a replacement. A double-click, network retry, or browser back-and-resubmit creates two identical FormSubmission records. The rate limiter (5/hour) does not prevent near-simultaneous duplicates within the same second. Recommendation: require DynamicForm to generate a UUID submission key stored in the localStorage draft and include it in the POST body; enforce UNIQUE on FormSubmission.submissionKey at the DB and API level; return 409 Conflict on duplicate key. Alternatively, document as accepted risk with a mitigation note."
+    },
+    {
+      "severity": "warning",
+      "owasp": "A02",
+      "item": "email field on FormSubmission stored in plaintext with no access control beyond admin session",
+      "detail": "FormSubmission.email is a top-level column stored without encryption. The submissions GET list endpoint returns all submissions to any authenticated admin. The tech-spec does not specify whether email should be excluded from the list response (only included in the detail response), nor whether it should be masked or encrypted at rest. For a payment processor handling merchant data, email exposure via a compromised admin session or DB read leak is a GDPR/data protection concern. Recommendation: exclude email from the list endpoint response (GET /api/submissions); include it only in GET /api/submissions/[id]. Document in Risks if encryption at rest is out of scope for v1."
+    },
+    {
+      "severity": "warning",
+      "owasp": "A05",
+      "item": "Middleware allowlist pattern for public routes is underspecified",
+      "detail": "Decision 7 states: 'Add /onboarding (already allowed by prefix match) and /api/templates public GET + submit patterns to NextAuth middleware allowlist.' The phrase 'public GET + submit patterns' is ambiguous. If the implementer adds a broad pattern like /api/templates to the allowlist, it would bypass auth for ALL /api/templates routes including the admin POST/PATCH/DELETE endpoints. The allowlist must be specified as exact route+method pairs: GET /api/templates/[id]/public and POST /api/templates/[id]/submit only. All other /api/templates routes must remain auth-protected. Task 3 must include the exact regex or path patterns to add to middleware.ts."
+    },
+    {
+      "severity": "warning",
+      "owasp": "A04",
+      "item": "Filename sanitization for storage path is not a formal Task 3 requirement",
+      "detail": "Decision 6 references the same regex pattern as existing supabase.ts (replace(/[^a-zA-Z0-9._-]/g, '_')), but this is a rationale note, not a Task 3 implementation requirement. Without an explicit requirement, an implementer might use the original filename directly, enabling path traversal sequences like ../../ in the Supabase storage path. Although Supabase Storage normalizes paths, the risk of unintended path behavior remains. Task 3 must state: 'Sanitize filename before constructing storage path using replace(/[^a-zA-Z0-9._-]/g, \"_\")' as an explicit implementation step."
+    },
+    {
+      "severity": "info",
+      "owasp": "A01",
+      "item": "Public endpoint exposes internal metadata: isProtected and fieldKey",
+      "detail": "GET /api/templates/[id]/public returns the full template structure including FormField.isProtected and FormField.fieldKey. The isProtected flag is an internal admin invariant; leaking it tells an attacker which field cannot be removed, which is unnecessary for rendering the form. fieldKey is used as a localStorage key and may be useful client-side, but its exposure should be a deliberate decision. A separate PublicTemplateResponse type should be defined in Task 3 that omits isProtected and any other admin-only attributes."
+    },
+    {
+      "severity": "info",
+      "owasp": "A09",
+      "item": "Error responses not specified to prevent internal info leakage",
+      "detail": "The tech-spec lists expected HTTP status codes (400/401/403/404/429/500) but does not specify the error response body format. If Prisma exceptions or stack traces are forwarded directly to the client in 500 responses (common in Next.js development mode and misconfigured production builds), internal schema names, query structure, and file paths are exposed. Recommendation: specify a standard error response shape (e.g., { error: string }) and require that 500 responses return a generic message ('Internal server error') while logging the full error server-side only. This is a standard note for all new API routes."
+    },
+    {
+      "severity": "info",
+      "owasp": "N/A",
+      "item": "CSRF not a risk for public submit; admin state-changing operations correctly use POST/PATCH/DELETE",
+      "detail": "The public submit endpoint (POST) requires no auth context, so CSRF cannot elevate privileges. All admin state-changing operations (create template, update template, delete template, update submission status) are correctly specified as POST/PATCH/DELETE — not GET — which NextAuth CSRF token protection covers for session-bearing requests. No action required."
+    }
+  ]
+}

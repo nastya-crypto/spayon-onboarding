@@ -1,0 +1,51 @@
+{
+  "task": "Task 7 — Submission Detail Page + StatusChanger adaptation",
+  "reviewer": "code-reviewer",
+  "round": 1,
+  "verdict": "approve_with_minor_fixes",
+  "summary": "Implementation is solid and follows established patterns. All core requirements are met: auth guards, Prisma fetch with correct includes, orphan response handling, FILE URL validation with XSS protection, CHECKBOX normalization, and backward-compatible StatusChanger adaptation. Three minor issues found.",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "minor",
+      "dimension": "Separation of Concerns / Readability",
+      "file": "src/app/(dashboard)/submissions/[id]/page.tsx",
+      "line": 80,
+      "title": "renderOrphanValue is a trivial wrapper that adds no value",
+      "description": "The `renderOrphanValue` function wraps a value in a `<span>` and is only called once. It is identical to the last branch of `renderFieldValue`, and adds unnecessary indirection without any semantic distinction. Either inline it at the call site or merge it into `renderFieldValue` with a generic fallback.",
+      "recommendation": "Inline: `value={<span>{response.value}</span>}` at the call site, or delete the function and pass `response.value` directly as the value prop (InfoRow already handles null with a dash fallback)."
+    },
+    {
+      "id": "CR-2",
+      "severity": "minor",
+      "dimension": "Type Safety",
+      "file": "src/app/(dashboard)/submissions/[id]/page.tsx",
+      "line": 108,
+      "title": "Status cast with `as Status` is unsafe if DB contains an unexpected value",
+      "description": "`const status = submission.status as Status` silently bypasses TypeScript. If the DB ever contains a value outside the union (e.g., a future migration adds a new status), `STATUS_BADGE[status]` will silently return `undefined`, causing a runtime crash when the Tailwind class string is interpolated.",
+      "recommendation": "Add a runtime guard: `const VALID_STATUSES: Status[] = ['NEW', 'IN_REVIEW', 'APPROVED', 'REJECTED']; if (!VALID_STATUSES.includes(submission.status as Status)) notFound();` — or alternatively import the `SubmissionStatus` enum from `@/generated/prisma/client` to derive the type without a raw cast."
+    },
+    {
+      "id": "CR-3",
+      "severity": "minor",
+      "dimension": "Security / API consistency",
+      "file": "src/app/api/submissions/[id]/route.ts",
+      "line": 16,
+      "description": "Pre-existing issue (not introduced by Task 7, but surfaced by cross-file review): the GET /api/submissions/[id] route only allows ADMIN role, but the submission detail page now allows REVIEWER role as well. A REVIEWER who navigates to the page successfully will have the page server-render (direct Prisma access, correct), but if any future client-side code or API calls are made to the GET endpoint they will be rejected with 403. The status PATCH endpoint has the same ADMIN-only restriction, which would block REVIEWERs from changing status. This was likely a pre-existing spec gap rather than a Task 7 regression, but is worth flagging.",
+      "title": "REVIEWER role blocked by API endpoints that serve the submission detail page",
+      "recommendation": "Update `/api/submissions/[id]/route.ts` GET handler and `/api/submissions/[id]/status/route.ts` PATCH handler to also accept `session.user.role === 'REVIEWER'`, consistent with the page-level auth guard. This is out of scope for Task 7 but should be tracked."
+    }
+  ],
+  "positive_observations": [
+    "XSS protection is correct: `isValidFileUrl` uses a strict regex and is validated before constructing the `<a>` tag. Invalid URLs fall back to plain text with no link.",
+    "Orphan detection logic is correct: both `fieldId === null` and `fieldId not in templateFieldIds` are covered in a single filter.",
+    "Deleted-template warning is non-blocking and well-placed — the amber notice correctly checks `submission.templateId === null` rather than `submission.template === null`, which would be equivalent here but less precise.",
+    "StatusChanger backward-compat approach (submissionId takes precedence, falls back to merchantId) is clean and avoids breaking merchants/[id]/page.tsx.",
+    "Prisma query structure is correct: includes responses, template.steps ordered by `order asc`, and fields ordered by `order asc`.",
+    "The `force-dynamic` export and session check pattern match the established merchant detail page pattern exactly.",
+    "FILE rendering properly sets `rel=\"noopener noreferrer\"` alongside `target=\"_blank\"` and `download` — good security hygiene.",
+    "Date formatting uses `en-US` locale explicitly, avoiding locale-dependent output differences across server environments."
+  ],
+  "blocking": false,
+  "required_fixes": ["CR-2 is the most impactful — the unsafe cast should be addressed. CR-1 and CR-3 are optional cleanup/tracking."]
+}

@@ -1,0 +1,73 @@
+{
+  "reviewer": "security-auditor",
+  "task": "2",
+  "round": 1,
+  "status": "approved",
+  "findings": [
+    {
+      "id": "SA-01",
+      "severity": "info",
+      "file": "src/app/api/templates/route.ts + src/app/api/templates/[id]/route.ts",
+      "line": "41-47, 59-66 (route.ts); 41-51, 70-80, 161-170 ([id]/route.ts)",
+      "description": "Auth pattern is correctly implemented and consistently applied across all five handlers (GET list, POST, GET single, PATCH, DELETE). Each handler independently calls `getServerSession(authOptions)`, checks for a null session (→ 401), then checks `session.user.role !== 'ADMIN'` (→ 403). This matches Decision 9 and the established pattern from `src/app/api/merchants/route.ts`. No auth bypass vectors observed.",
+      "suggestion": "No action needed. Consistent and correct."
+    },
+    {
+      "id": "SA-02",
+      "severity": "info",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": "96-111",
+      "description": "Protected field guard correctly queries the DB for `isProtected: true` fields and verifies each protected `fieldKey` exists in the incoming request body before executing the transaction. This prevents silent removal of the Company Name field via PATCH.",
+      "suggestion": "No action needed. Implementation is correct and matches the spec."
+    },
+    {
+      "id": "SA-03",
+      "severity": "low",
+      "file": "src/app/api/templates/route.ts + src/app/api/templates/[id]/route.ts",
+      "line": "68-72 (route.ts); 82-86 ([id]/route.ts)",
+      "description": "Raw Prisma errors (stack traces, DB table names, constraint details) may be leaked in 500 responses because there is no try/catch around `prisma.formTemplate.create` (POST) or `prisma.$transaction` (PATCH). Although these are admin-only routes, leaking internal DB structure to any authenticated ADMIN user is a minor information disclosure risk.",
+      "suggestion": "Wrap Prisma calls in try/catch and return generic 500 messages on unexpected errors. Zod validation errors are already handled safely (returning `parsed.error.issues` for 400s is acceptable for admin routes)."
+    },
+    {
+      "id": "SA-04",
+      "severity": "low",
+      "file": "src/app/api/templates/route.ts",
+      "line": "31-36",
+      "description": "The `toFieldKey` function sanitizes user-supplied labels into a safe kebab-case key using `label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')`. This correctly strips all characters outside `[a-z0-9-]`, preventing fieldKey injection (e.g. SQL-like values, XSS payloads in keys). However, a label consisting entirely of non-alphanumeric characters (e.g. '!!!' or '---') would produce an empty string fieldKey `''` after stripping leading/trailing dashes.",
+      "suggestion": "Add a guard: if `toFieldKey(label)` returns an empty string, either fall back to a random short ID (e.g. `cuid()`) or return a 400 validation error. This prevents a fieldKey of `''` being stored in the DB, which could cause ambiguity in Task 3's submit endpoint lookups."
+    },
+    {
+      "id": "SA-05",
+      "severity": "info",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": "116-156",
+      "description": "The PATCH full-replacement uses Prisma's interactive transaction form (`prisma.$transaction(async (tx) => {...})`), which is correctly specified over the array form to guarantee execution order. The delete-then-create pattern prevents partial states because Prisma's transaction rolls back on any error. `FieldResponse.fieldId` becomes null via `onDelete: SetNull` on the FK (defined in schema), so existing submissions are unaffected.",
+      "suggestion": "No action needed. Transaction strategy is correct per Decision in tech-spec."
+    },
+    {
+      "id": "SA-06",
+      "severity": "info",
+      "file": "src/lib/form-validation.ts",
+      "line": "22-63",
+      "description": "`buildZodSchema` is a pure function with no auth, DB access, or side effects. It correctly maps all 7 FieldType values. The `z.string().max(10000)` limit on TEXT/TEXTAREA values is present per Decision 10. EMAIL uses `z.string().email()` (Zod regex validation), URL uses `z.string().url()` — both are standard Zod validators with no known bypass vectors for their intended purpose.",
+      "suggestion": "No action needed."
+    },
+    {
+      "id": "SA-07",
+      "severity": "info",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": "161-182",
+      "description": "DELETE correctly checks for template existence (404 if not found) before deleting. The cascade is handled by Prisma schema `onDelete: Cascade` on FormStep→FormField and `onDelete: SetNull` on FormSubmission→templateId. No direct SQL used — no SQL injection surface.",
+      "suggestion": "No action needed."
+    },
+    {
+      "id": "SA-08",
+      "severity": "info",
+      "file": "src/app/api/templates/route.ts + src/app/api/templates/[id]/route.ts",
+      "line": "N/A",
+      "description": "These admin management routes (`GET /api/templates`, `POST /api/templates`, `GET/PATCH/DELETE /api/templates/[id]`) are NOT in the middleware allowlist per Decision 7. The middleware allowlist only permits exact public paths (`/api/templates/:id/public`, `/api/templates/:id/submit`). Admin routes remain behind NextAuth session middleware, providing defense-in-depth in addition to the per-handler role checks.",
+      "suggestion": "No action needed. Middleware configuration (not modified in this task) is expected to remain correct per Decision 7."
+    }
+  ],
+  "summary": "All admin routes correctly implement session + role checks with no observed bypass vectors. The protected field guard is properly implemented. No SQL injection surface (all DB access via Prisma ORM with parameterized queries). The main security-relevant finding is SA-04 (empty fieldKey from all-symbol label) and SA-03 (raw error leakage on 500s). Both are low severity given these are admin-only endpoints. No critical or high-severity security issues found. Status: approved with low-severity recommendations."
+}

@@ -1,0 +1,61 @@
+{
+  "batch": 1,
+  "iteration": 1,
+  "status": "fail",
+  "findings": [
+    {
+      "task": 1,
+      "severity": "critical",
+      "issue": "Seed idempotency logic is broken: prisma/seed.ts currently has an early return (`return`) after detecting the admin user already exists. The template seeding block described in Task 1 (step 6) would never execute on subsequent runs — only on the very first seed when no user exists yet. If the user was already seeded before this migration, the 'Standard Onboarding' template will never be created.",
+      "fix": "Remove the early `return` from the existing-user branch and restructure seed.ts so the user-creation block and the template-creation block are independent checks. Template seeding should proceed regardless of whether the admin user already existed. Alternatively, move template creation outside the user guard — check `formTemplate.findFirst({ where: { name: 'Standard Onboarding' } })` unconditionally after the user block."
+    },
+    {
+      "task": 1,
+      "severity": "warning",
+      "issue": "The Prisma client uses a non-standard generated output path (`../src/generated/prisma` in schema.prisma, `@/generated/prisma/client` in db.ts). The migration step `npx prisma migrate dev` requires the client to be regenerated after adding new models. Task 1 step 5 says 'verify Prisma client generates correctly' but does not explicitly call `npx prisma generate` before `npm run build`. If the generated client is stale after migration, build will fail with type errors referencing the new models.",
+      "fix": "Add an explicit step between steps 4 and 5: run `npx prisma generate` after `npx prisma migrate dev` to regenerate the client at `src/generated/prisma`. This matches the existing pattern in seed.ts which imports from that path."
+    },
+    {
+      "task": 2,
+      "severity": "critical",
+      "issue": "Task 3 (Public form API) has `depends_on: [1]` but requires `src/lib/form-validation.ts` which is created by Task 2. Both tasks are in Wave 2 and can theoretically run in parallel, but Task 3 cannot complete without `buildZodSchema` from Task 2. The tech-spec lists both as Wave 2 / parallel, yet Task 3 Details section acknowledges the dependency: 'if T2 is not yet complete, stub the validation inline and refactor once T2 merges'. The stub workaround leaves a real risk of mismatched function signatures.",
+      "fix": "Either: (a) add `2` to Task 3's `depends_on` making it `[1, 2]` and move Task 3 to a sub-wave after Task 2 completes; or (b) extract `src/lib/form-validation.ts` into Task 1 (schema-only task could create the pure utility file since it has no Prisma dependency beyond model types), removing the cross-task coupling in Wave 2. Option (a) is simpler."
+    },
+    {
+      "task": 2,
+      "severity": "warning",
+      "issue": "The PATCH full-replacement transaction as specified uses `prisma.$transaction([...])` (array form) but the implementation hint mixes array-form and sequential operations in a way that may not work correctly: deleting steps cascades to fields, but the new creates must happen after delete in the same transaction. The array form of `$transaction` does not guarantee ordering. The interactive transaction form `prisma.$transaction(async (tx) => { ... })` is required for the delete-then-create pattern.",
+      "fix": "Replace the array-form transaction example in Details with the interactive form: `await prisma.$transaction(async (tx) => { await tx.formStep.deleteMany(...); await tx.formTemplate.update({ where: { id }, data: { steps: { create: [...] } } }); });` This guarantees delete-before-insert ordering."
+    },
+    {
+      "task": 2,
+      "severity": "warning",
+      "issue": "The `buildZodSchema` function signature in Details says `Pick<FormField, 'fieldKey' | 'type' | 'required'>[]` but Task 2 also describes creating it at `src/lib/form-validation.ts` before the `FormField` Prisma model exists in the generated client (Task 1 must run first). The type `FormField` referenced will not be importable from `@prisma/client` (or `@/generated/prisma/client`) until after Task 1 migration+generate. The task correctly lists `depends_on: [1]`, so this is fine in terms of sequencing, but the implementation must import from the generated Prisma path, not a plain type.",
+      "fix": "No change to depends_on needed — just note in implementation that the import must be `import type { FormField } from '@/generated/prisma/client'` (matching the project's non-standard generated output path), not `from '@prisma/client'`."
+    },
+    {
+      "task": 3,
+      "severity": "critical",
+      "issue": "Task 3 `depends_on: [1]` is missing Task 2. The submit route explicitly imports `buildZodSchema` from `src/lib/form-validation.ts` which is created in Task 2. Running Task 3 without Task 2 completed will result in a missing module import error.",
+      "fix": "Change Task 3 front-matter to `depends_on: [1, 2]`. If keeping both in Wave 2 as parallel is a hard requirement, move `src/lib/form-validation.ts` creation into Task 1 instead of Task 2 (it is a pure utility with no API surface, only dependent on Prisma types)."
+    },
+    {
+      "task": 3,
+      "severity": "warning",
+      "issue": "The middleware update in Task 3 must add exact-path patterns for `/api/templates/[id]/public` and `/api/templates/[id]/submit`, but the current middleware allowlist includes `/api/onboarding/submit` using `startsWith`. Task 9 later removes the old routes. During the period when both Task 3 is done and Task 9 is not yet done, both old and new submit paths need to remain open. This is handled correctly by not removing the old entry, but the task description does not explicitly state 'do not remove existing allowlist entries for /api/onboarding/submit'. An implementer might clean up the old entry prematurely.",
+      "fix": "Add a note to Task 3 step 3: 'Do not remove the existing `/api/onboarding/submit` allowlist entry — that cleanup happens in Task 9.'"
+    },
+    {
+      "task": 3,
+      "severity": "warning",
+      "issue": "The file upload path specification uses `{submissionId}` as a prefix, but the Details section notes: '`submissionId` needed for storage path before DB record exists → generate the submission ID before creating DB records (use `cuid()` or create submission first then upload)'. The task does not specify which approach to use, and both have tradeoffs: pre-generating a cuid means the DB record might never be created (upload succeeds, DB fails), while creating the DB record first means the path won't use the real submissionId. The lack of a specified approach could lead to inconsistent implementations.",
+      "fix": "Specify the approach: 'Generate `submissionId` client-side using `import { createId } from @paralleldrive/cuid2` (or inline cuid logic) before upload, then pass the pre-generated id to `prisma.formSubmission.create({ data: { id: submissionId, ... } })`. If upload succeeds but DB fails, orphaned Supabase files are acceptable for MVP.'"
+    },
+    {
+      "task": 3,
+      "severity": "info",
+      "issue": "Task 3 TDD test file path is `src/__tests__/api/templates/submit.test.ts` but Task 2 TDD files are at `src/__tests__/api/templates.test.ts` (flat) and `src/__tests__/lib/form-validation.test.ts`. The nested path for Task 3 tests (`api/templates/submit.test.ts`) introduces a subdirectory that doesn't exist by convention from Task 2. Minor inconsistency that won't cause failures but may confuse the test runner glob.",
+      "fix": "Standardize test file location — either use `src/__tests__/api/templates-public-submit.test.ts` (flat, matching Task 2 pattern) or ensure Task 2 test is also placed in a subdirectory. Update the jest run command in Task 3 Verification Steps accordingly."
+    }
+  ]
+}

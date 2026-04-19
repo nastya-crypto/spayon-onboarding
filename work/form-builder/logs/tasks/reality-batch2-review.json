@@ -1,0 +1,79 @@
+{
+  "batch": 2,
+  "iteration": 1,
+  "status": "pass",
+  "findings": [
+    {
+      "task": 4,
+      "severity": "info",
+      "issue": "Context Files reference `~/.claude/skills/project-knowledge/references/architecture.md` and `patterns.md` using `~/` path prefix. These files actually live at the project-local path `.claude/skills/project-knowledge/references/` (i.e. `/Users/anastasiabaranova/Developer/spayon-onboarding/.claude/skills/project-knowledge/references/`). The `~/` prefix would resolve to the home directory which has no `skills/` at that path.",
+      "fix": "Update Context File paths to use the project-relative prefix or an absolute path: `src/...` or `.claude/skills/project-knowledge/references/architecture.md`. This is cosmetic — agents loading the skill will likely resolve it correctly through skill path logic, but the path notation is misleading."
+    },
+    {
+      "task": 4,
+      "severity": "warning",
+      "issue": "Task 4 Details says `SubmissionStatus` enum should be imported from `@/generated/prisma/client`. The project currently uses `@prisma/client` (standard Prisma setup) — there is no `generated/prisma/client` path visible in the codebase. The existing merchants route imports Prisma types from `@prisma/client`. If `@/generated/prisma/client` is not the actual output path configured in `prisma/schema.prisma`, the import will fail at compile time.",
+      "fix": "Verify the `output` field in `prisma/schema.prisma` generator block. If the output is the default (`node_modules/@prisma/client`), change the hint in Details to `import { SubmissionStatus } from '@prisma/client'`. Only use `@/generated/prisma/client` if the schema generator explicitly sets `output = '../src/generated/prisma/client'`."
+    },
+    {
+      "task": 4,
+      "severity": "info",
+      "issue": "The Details section notes that `merchants/[id]/status/route.ts` uses `getToken` and explicitly says NOT to copy that pattern. This is a correct and useful callout. However, the Acceptance Criteria item 12 says 'All three routes use `getServerSession(authOptions)` (not `getToken`) — pattern as in `merchants/route.ts`'. This is consistent. No action needed — just confirming the dual callout is coherent.",
+      "fix": "No fix needed."
+    },
+    {
+      "task": 4,
+      "severity": "info",
+      "issue": "`depends_on: [1]` is correct per tech-spec Wave 2 definition ('all depend on Task 1'). No hidden dependencies missing. Task 4 does not need Task 2 or 3 (it only uses the Prisma schema established in Task 1 and `src/lib/auth/auth-options.ts` which already exists).",
+      "fix": "No fix needed."
+    },
+    {
+      "task": 5,
+      "severity": "warning",
+      "issue": "`depends_on: [2, 4]` — tech-spec Wave 3 states 'T5/T6/T7 depend on T2+T4'. Task 5 directly calls `GET /api/templates`, `POST /api/templates`, `GET /api/templates/[id]`, `PATCH /api/templates/[id]`, `DELETE /api/templates/[id]` (all owned by Task 2). Task 5 does NOT actually consume any submissions API endpoints (Task 4). The Description says it depends on Task 4 'for any submission-related counts' but no such counts appear in the What to do, Acceptance Criteria, or Details sections — there is no submission data used on the templates pages.",
+      "fix": "Remove Task 4 from `depends_on` for Task 5 (change to `depends_on: [2]`), or explicitly add the submission-count feature to What to do if it is intentional. As written, the Task 4 dependency is spurious and may delay execution unnecessarily."
+    },
+    {
+      "task": 5,
+      "severity": "info",
+      "issue": "Context Files reference `~/.claude/skills/project-knowledge/references/` — same path notation issue as Task 4. Files exist at the project-local `.claude/skills/project-knowledge/references/` path.",
+      "fix": "Same as Task 4: clarify path notation. Cosmetic only."
+    },
+    {
+      "task": 5,
+      "severity": "info",
+      "issue": "The task says Copy Link should use `process.env.NEXTAUTH_URL` server-side and pass it as a prop to the client component. The Details and Implementation hints both reinforce this correctly. The Acceptance Criteria item correctly states 'uses server-provided base URL, not `window.location.origin`'. Consistent with tech-spec Decision (Copy Link URL construction). No issue.",
+      "fix": "No fix needed."
+    },
+    {
+      "task": 5,
+      "severity": "info",
+      "issue": "No overlap with Task 6 (Dashboard refactor) or Task 7 (Submission detail). Task 5 creates entirely new files under `templates/` and a new component `TemplateEditor.tsx`. Task 6 modifies existing dashboard files. No duplicate work detected.",
+      "fix": "No fix needed."
+    },
+    {
+      "task": 6,
+      "severity": "warning",
+      "issue": "`depends_on: [2, 4]` — Task 6 only consumes `GET /api/submissions` (Task 4). Task 2 (template management API) is not directly used by the dashboard page or table components being modified. The dependency on Task 2 exists only because the 'Templates' link navigates to `/dashboard/templates` which is built in Task 5, not Task 2. The API layer (Task 2) does not need to be complete for the dashboard UI to render correctly — only Task 4 is a hard runtime dependency.",
+      "fix": "Minor: consider whether Task 2 is a true dependency or if the Templates link target (Task 5) is the real blocker. If the intent is 'do not start Task 6 until the templates section exists', then `depends_on` should include Task 5, not Task 2. Recommended change: `depends_on: [4, 5]`. This is low-severity since the current dependency is conservative (not blocking anything incorrectly), but it is semantically inaccurate."
+    },
+    {
+      "task": 6,
+      "severity": "info",
+      "issue": "Task 6 modifies `src/components/dashboard/MerchantsTable.tsx` in-place (renames component to `SubmissionsTable`). This will break the import in `src/app/(dashboard)/dashboard/page.tsx` until both changes land in the same commit. The task correctly instructs updating `dashboard/page.tsx` too, so this is handled. However, Task 7 also reads `src/app/(dashboard)/merchants/[id]/page.tsx` which still exists — Task 6 does not delete it. No conflict.",
+      "fix": "No fix needed — the in-place modification plus simultaneous import update is the correct approach."
+    },
+    {
+      "task": 6,
+      "severity": "info",
+      "issue": "Task 6 instructs replacing direct `prisma.merchant` calls in `dashboard/page.tsx` with either `fetch('/api/submissions')` or direct `prisma.formSubmission` queries. The 'Implementation hints' section correctly advises reusing the `groupBy` + map pattern from the existing code (just change `prisma.merchant` to `prisma.formSubmission`). The edge-case note about choosing between fetch vs direct Prisma is helpful. Scope is adequate.",
+      "fix": "No fix needed."
+    },
+    {
+      "task": 6,
+      "severity": "info",
+      "issue": "No hidden dependencies missing. Task 6 only requires Task 4's `GET /api/submissions` to be available and `src/components/dashboard/StatsCard.tsx` (already exists). `CreateLinkButton.tsx` already exists. `dashboard/page.tsx` already exists. All referenced files are confirmed present.",
+      "fix": "No fix needed."
+    }
+  ]
+}

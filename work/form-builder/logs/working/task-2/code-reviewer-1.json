@@ -1,0 +1,73 @@
+{
+  "reviewer": "code-reviewer",
+  "task": "2",
+  "round": 1,
+  "status": "needs_changes",
+  "findings": [
+    {
+      "id": "CR-01",
+      "severity": "medium",
+      "file": "src/app/api/templates/route.ts",
+      "line": "49-56",
+      "description": "GET /api/templates returns step count via _count but does NOT return field count. The spec explicitly requires 'step count and field count' for the list view. Currently only `_count: { select: { steps: true } }` is included; there is no nested field count.",
+      "suggestion": "Add a nested _count for fields within the steps include, or use a two-level include with `_count`. Example: `include: { _count: { select: { steps: true } }, steps: { include: { _count: { select: { fields: true } } } } }`. Alternatively use `include: { _count: { select: { steps: true } } }` for step count and add a computed total field count if Prisma supports it via nested _count."
+    },
+    {
+      "id": "CR-02",
+      "severity": "low",
+      "file": "src/app/api/templates/route.ts",
+      "line": "103-124",
+      "description": "POST has no try/catch around the `prisma.formTemplate.create` call. If Prisma throws (e.g. unique constraint violation from duplicate fieldKey within a step, or a DB connectivity error), the request will produce an unhandled rejection / 500 with a raw Prisma error object, potentially leaking internal details.",
+      "suggestion": "Wrap the `prisma.formTemplate.create` call in try/catch. Catch Prisma `P2002` (unique constraint) and return 400 with a user-friendly message. Catch all other errors and return 500 with a generic message."
+    },
+    {
+      "id": "CR-03",
+      "severity": "low",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": "116-156",
+      "description": "PATCH has no try/catch around `prisma.$transaction`. A Prisma unique constraint violation (e.g. duplicate `[stepId, order]`) or connectivity error will surface as an unhandled 500 with raw stack traces. The task spec explicitly notes this edge case: 'handle via @@unique([stepId, order]) Prisma constraint; let Prisma throw and catch with a 400'.",
+      "suggestion": "Wrap `prisma.$transaction(...)` in try/catch. Catch Prisma error code P2002 and return 400 'Duplicate field order within a step'. Catch other errors and return 500 with a generic message."
+    },
+    {
+      "id": "CR-04",
+      "severity": "low",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": "100-111",
+      "description": "The protected-field guard computes `incomingFieldKeys` by calling `toFieldKey(f.label)` for fields that don't provide a fieldKey. This is the same transformation the PATCH handler later applies when inserting. However, if a protected field's stored `fieldKey` was set during POST with a different value (e.g. caller explicitly passed 'company-name'), the guard depends on the caller always sending either the exact stored key or the label that produces the same key. This is fragile: if a caller sends `{ label: 'Company Name', fieldKey: undefined }` in PATCH, `toFieldKey('Company Name')` produces `'company-name'` which matches — correct. But if the label casing differs even slightly (e.g. 'company name'), the guard fails incorrectly. The spec says 'Check that the incoming body still contains all isProtected fields from the existing template' — the check should prefer the explicitly-passed fieldKey and fall back to computed, which it does. This is acceptable but worth documenting.",
+      "suggestion": "Low severity; add a comment clarifying the fallback logic. Consider also normalising the comparison to lower-case to be defensive."
+    },
+    {
+      "id": "CR-05",
+      "severity": "low",
+      "file": "src/app/api/templates/route.ts + src/app/api/templates/[id]/route.ts",
+      "line": "11-27 (both files)",
+      "description": "The Zod schemas `fieldSchema`, `stepSchema`, and `templateBodySchema` are duplicated verbatim in both route files (with one minor addition: `isProtected` is optional in the [id] route schema). This creates a maintenance burden if limits change.",
+      "suggestion": "Extract shared schemas to `src/lib/template-schemas.ts` and import in both files. Minor DRY violation; acceptable for v1 but worth addressing before Task 5 (UI) adds more consumers."
+    },
+    {
+      "id": "CR-06",
+      "severity": "low",
+      "file": "src/app/api/templates/[id]/route.ts",
+      "line": "143-145",
+      "description": "Blank line 145 inside the transaction (between the inner loop and the `return tx.formTemplate.findUnique` call) is a minor style inconsistency compared to the rest of the file.",
+      "suggestion": "Remove the extra blank line at line 145. Minor style issue."
+    },
+    {
+      "id": "CR-07",
+      "severity": "info",
+      "file": "src/lib/form-validation.ts",
+      "line": "1-63",
+      "description": "The function signature is `buildZodSchema(fields: FieldInput[])` using a local `FieldInput` type. The task spec says the stable signature should be `buildZodSchema(fields: Pick<FormField, 'fieldKey' | 'type' | 'required'>[])` where `FormField` is the Prisma-generated type. The current inline type is structurally equivalent and works, but it is not the exact stable signature documented in the spec.",
+      "suggestion": "Either alias `FieldInput` from the Prisma type (import `FormField` from `@/generated/prisma/client`) or rename it and add a JSDoc comment noting compatibility with the Prisma type. Task 3 will import this function — keeping the signature stable matters."
+    },
+    {
+      "id": "CR-08",
+      "severity": "info",
+      "file": "src/lib/form-validation.ts",
+      "line": "30-33",
+      "description": "For TEXT and TEXTAREA fields, a required field gets `z.string().min(1).max(10000)` while a non-required field gets `z.string().max(10000)` — and then `.optional()` is applied on line 56. Applying `.optional()` after the fact means a non-required TEXT field accepts `undefined` but would still reject `''` (empty string fails `.min(1)` if it were there, but it's not). This is correct as written. However, for the optional path, `z.string().max(10000).optional()` means `undefined` passes but `''` also passes (no .min(1)), which may allow empty string submissions for optional fields. This is likely intentional but not explicitly stated in the spec.",
+      "suggestion": "Add a comment clarifying that optional fields intentionally accept empty string (no .min(1) applied). If empty string should be rejected, use `z.string().min(1).max(10000).optional()` instead."
+    }
+  ],
+  "summary": "The implementation is well-structured and correctly follows the auth pattern, Company Name auto-insert, PATCH full-replacement transaction, fieldKey generation, and Zod limits. All 7 TDD Anchors have tests that pass. Two medium/low issues need attention before approval: (1) GET list response is missing the field count (only step count included), contradicting the spec requirement; (2) Both route files lack try/catch around Prisma calls, which the spec explicitly calls out as an edge case to handle. The remaining findings are low-severity DRY and style issues. Recommend fixing CR-01, CR-02, CR-03 before marking complete."
+}

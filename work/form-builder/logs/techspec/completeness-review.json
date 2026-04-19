@@ -1,0 +1,102 @@
+{
+  "validator": "completeness-validator",
+  "status": "fail",
+  "findings": [
+    {
+      "severity": "critical",
+      "type": "gap",
+      "item": "US-AC (orphan rendering): user-spec says skip orphan FieldResponse; tech-spec says render them",
+      "detail": "User-spec technical decisions state: 'Если FormField был удалён после отправки — соответствующий FieldResponse пропускается (orphan не рендерится).' Tech-spec Task 7 and User-Spec Deviations section directly contradict this: 'Orphan responses (fieldId = null) rendered with fieldLabel only.' The deviation is listed as [PENDING USER APPROVAL], meaning it has not been approved. This contradiction will cause the implementation to diverge from user intent without explicit sign-off. Must be resolved before implementation begins."
+    },
+    {
+      "severity": "critical",
+      "type": "gap",
+      "item": "US-AC7: Cannot save template without at least one step and one field — no task or API spec covers this",
+      "detail": "User-spec acceptance criterion: 'Нельзя сохранить шаблон без хотя бы одного шага и одного поля в нём.' The tech-spec unit test list includes 'POST /api/templates with no steps returns 400', which covers the API side. However Task 5 (Templates admin pages) does not specify any UI-level enforcement: no Save button disabled state, no inline error message, no mention of validating at least one field per step before submit. The step-has-no-fields case is not covered anywhere. This leaves a gap in both the task description and the acceptance criteria."
+    },
+    {
+      "severity": "critical",
+      "type": "gap",
+      "item": "Merchant model preservation: user-spec says keep it; tech-spec does not",
+      "detail": "User-spec technical decisions explicitly state: 'Модель Merchant сохраняется в схеме для будущей генерации документов, но форма её больше не заполняет напрямую.' The tech-spec Prisma schema section only shows 5 new models and says 'Remove: OnboardingToken model'. It does not show the Merchant model being kept, and Task 9 deletes the merchants API routes without caveats. If Task 1 rewrites schema.prisma from the tech-spec alone, the Merchant model risks being dropped. This is a material discrepancy — the user-spec constrains the schema, but the tech-spec ignores the constraint."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "US-AC10: Confirm dialog before template deletion — not specified in any task",
+      "detail": "User-spec acceptance criterion: 'Delete показывает confirm-диалог \"Are you sure?\" → шаблон удалён.' Task 5 description mentions 'Edit/Copy Link/Delete' buttons on the template list, but does not specify that Delete must show a confirmation dialog before calling the API. No task description or tech-spec AC mentions the confirm dialog. An implementer following the task description alone could implement a direct delete without confirmation."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "US Constraints: localStorage graceful degradation — not covered in any task or test",
+      "detail": "User-spec constraints section: 'Если localStorage недоступен — форма работает без сохранения, ошибка не показывается.' Task 8 mentions localStorage autosave, but the graceful degradation case (localStorage unavailable → silent no-op) is not mentioned in the task description. The unit test list does include 'graceful no-op when localStorage unavailable', which partially mitigates this, but the task description does not call out the implementation requirement (try/catch wrapping). Risk: implementer may not know to handle this edge case."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "email collection mechanism is implicit — no protected EMAIL field like Company Name",
+      "detail": "User-spec states 'FormSubmission хранит email клиента для идентификации.' The FormSubmission model has `email String`. However, unlike companyName which is guaranteed by the isProtected Company Name field, there is no corresponding protected EMAIL field in the template. The submit endpoint presumably extracts email from a FormField of type EMAIL, but no decision or task specifies how this extraction works, what happens if no email field exists, or whether an email field is also auto-created as protected. Decision 2 only covers companyName extraction. This is an implicit assumption that could cause a runtime null or validation error."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "Task 9 (legacy cleanup): deleted files not listed in files-to-modify",
+      "detail": "Task 9 description says to remove the legacy token-based system and lists `src/middleware.ts` as the only file to modify. However the Architecture section lists 6 files to be deleted: `src/app/(onboarding)/onboarding/[token]/page.tsx`, `OnboardingForm.tsx`, `src/app/api/onboarding/create-link/route.ts`, `src/app/api/onboarding/submit/route.ts`, `src/app/api/merchants/route.ts`, `src/app/api/merchants/[id]/status/route.ts`. An agent executing Task 9 from the task description alone would only update middleware and miss deleting 6 files. The deletions should be listed in files-to-modify."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "US-AC16: English-only admin UI — only enforced in Task 7, not Tasks 5 and 6",
+      "detail": "User-spec acceptance criterion: 'Весь текст admin-интерфейса на английском.' Task 7 (Submission detail page) explicitly says 'All labels in English.' Tasks 5 (Templates admin pages) and Task 6 (Dashboard refactor) do not mention the English-only requirement. An implementer working on Task 5 or Task 6 in isolation has no explicit instruction to keep UI text in English."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "Copy Link URL construction method not specified (NEXTAUTH_URL vs window.location.origin)",
+      "detail": "User-spec AC: 'Copy Link копирует [NEXTAUTH_URL]/onboarding/[templateId] в буфер.' Task 5 mentions a 'Copy Link button' but does not specify how the base URL is constructed client-side. NEXTAUTH_URL is a server-side env var not available in the browser by default in Next.js unless explicitly exposed via NEXT_PUBLIC_. The alternative is window.location.origin. Without specifying this, the implementer may use an approach that results in a broken or wrong URL."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "PATCH template strategy (full-replace) is documented in User-Spec Deviations but not in Task 2",
+      "detail": "The full-replacement PATCH strategy is correctly described in User-Spec Deviations as [TECHNICAL]. However Task 2's description does not reference this decision. An implementer reading Task 2 without the full tech-spec would not know the PATCH contract. The task description should state: 'PATCH uses full-replacement — accepts {name, steps:[{title, fields:[...]}]} and replaces all steps/fields atomically in a transaction.'"
+    },
+    {
+      "severity": "warning",
+      "type": "shallow_solution",
+      "item": "Task 6 lists StatsCard.tsx as a file to modify with no description of what changes",
+      "detail": "Task 6 files-to-modify includes `src/components/dashboard/StatsCard.tsx` but the task description does not mention what changes are needed to it. The architecture section only mentions replacing MerchantsTable with SubmissionsTable and CreateLinkButton with a Templates nav link. The StatsCard change is an implicit assumption with no specified behavior."
+    },
+    {
+      "severity": "warning",
+      "type": "gap",
+      "item": "Submission detail rendering when templateId is null (template deleted) not specified in Task 7",
+      "detail": "Decision 4 covers the DB-level SetNull behavior. Task 7 covers submission detail rendering. However Task 7 does not specify the rendering strategy when submission.templateId is null (i.e., the template has been deleted). In this case there is no template structure to group responses by step. The task should specify: when templateId is null, render all FieldResponse records flat using fieldLabel snapshots only, without step grouping."
+    },
+    {
+      "severity": "info",
+      "type": "scope_creep",
+      "item": "fieldKey deviation justifies future document generation scope outside this feature",
+      "detail": "User-Spec Deviations entry for fieldKey mentions 'future document generation placeholders ({{fieldKey}})' as a rationale. This references a feature outside the current scope. The [TECHNICAL] marking is appropriate, but the forward-looking justification adds implicit scope expectations. Suggest removing the future-use reference and justifying fieldKey solely on its present use (stable localStorage key, submit value mapping)."
+    },
+    {
+      "severity": "info",
+      "type": "gap",
+      "item": "Decision 6 references 'US file field type' without a specific AC or scenario citation",
+      "detail": "Decision 6 (File uploads) states: 'Supports US file field type.' This is a vague reference — it does not cite a specific acceptance criterion or scenario from the user-spec. While the file field type is listed in user-spec Constraints ('Поддерживаемые типы полей v1: text, email, url, number, textarea, file, checkbox'), the decision should cite it precisely to maintain clear traceability."
+    },
+    {
+      "severity": "info",
+      "type": "gap",
+      "item": "Decision 8 references 'US migration decision' without a specific citation",
+      "detail": "Decision 8 states: 'Supports US migration decision.' This is not a traceable reference. The user-spec migration decision is in the 'Технические решения' section: 'OnboardingToken удаляется полностью.' The decision rationale should cite that section specifically."
+    },
+    {
+      "severity": "info",
+      "type": "gap",
+      "item": "EN/RU toggle in DynamicForm relies on implicit pattern reuse from OnboardingForm with no task guidance",
+      "detail": "Task 8 states 'EN/RU toggle (same pattern as existing OnboardingForm).' This assumes the pattern is straightforwardly reusable without any structural changes. There is no task or subtask to verify this assumption or handle any refactoring of the i18n logic. Low risk given the existing implementation, but it is an unverified implicit dependency."
+    }
+  ]
+}

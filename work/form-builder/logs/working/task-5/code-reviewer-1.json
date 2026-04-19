@@ -1,0 +1,68 @@
+{
+  "task": "Task 5 — Templates Admin Pages",
+  "commit": "0115ef4",
+  "reviewer": "code-reviewer",
+  "round": 1,
+  "summary": "Implementation is clean, well-structured, and follows established project patterns. Separation of utilities from the React component enables testability without a DOM. No critical issues. Three minor/major findings below.",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "major",
+      "dimension": "Cross-File Consistency (10) + Security (8)",
+      "file": "src/app/(dashboard)/templates/[id]/edit/page.tsx",
+      "line": 44,
+      "title": "Unsafe type cast for `f.type` from Prisma — use FieldType union instead of raw `as` cast",
+      "description": "The field type coming from Prisma is stored as a plain string in the DB (Prisma enum maps to string at runtime). The code casts it with `f.type as 'TEXT' | 'EMAIL' | ...`. If a legacy/corrupt row has an unexpected value, the cast silently succeeds and the data reaches the editor in a broken state. The correct approach is to validate the value against the FieldType union and throw / skip bad rows, or re-use the Zod enum already defined in the API layer.",
+      "recommendation": "Import `FieldType` and validate: `const FIELD_TYPES = new Set(['TEXT','EMAIL','URL','NUMBER','TEXTAREA','FILE','CHECKBOX']); if (!FIELD_TYPES.has(f.type)) throw new Error(...)`. Alternatively, since Prisma 7 can be configured to use native enums, verify schema alignment. At minimum, wrap in a utility function rather than an inline `as` cast spread across multiple lines."
+    },
+    {
+      "id": "CR-2",
+      "severity": "major",
+      "dimension": "Error Handling (4)",
+      "file": "src/app/(dashboard)/templates/new/NewTemplatePage.tsx",
+      "line": 18,
+      "title": "Save errors are thrown but never surfaced to the user in the New template flow",
+      "description": "In `NewTemplatePage`, when `fetch` returns a non-ok response the handler throws `new Error(...)`. The `TemplateEditor.handleSave` wraps `onSave` in a try/finally, so the error is swallowed after `setSaving(false)` — no error message is shown to the user. The Edit flow (EditTemplatePage) correctly sets `saveError` state and renders it before calling `throw`. The New flow lacks this.",
+      "recommendation": "Add `const [saveError, setSaveError] = useState<string | null>(null)` to `NewTemplatePage` and render it above `<TemplateEditor>`, matching the pattern in `EditTemplatePage`. Alternatively, propagate error display into `TemplateEditor` itself via a new `saveError` prop."
+    },
+    {
+      "id": "CR-3",
+      "severity": "minor",
+      "dimension": "Type Safety (5)",
+      "file": "src/app/(dashboard)/templates/[id]/edit/EditTemplatePage.tsx",
+      "lines": "6-7",
+      "title": "Duplicate import statements for the same module",
+      "description": "`SavePayload` and `FieldType` are both imported from `@/components/dashboard/TemplateEditorUtils` but in two separate `import type` lines. This is a trivial style issue but clutters the import block.",
+      "recommendation": "Merge into one: `import type { SavePayload, FieldType } from '@/components/dashboard/TemplateEditorUtils';`"
+    },
+    {
+      "id": "CR-4",
+      "severity": "minor",
+      "dimension": "Architectural Patterns (1)",
+      "file": "src/components/dashboard/TemplateEditor.tsx",
+      "line": 84,
+      "title": "Validation runs on every render; `validationError` state is redundant with derived `validError`",
+      "description": "`validateTemplate(name, steps)` is called unconditionally on every render to produce `validError`, which is then used to disable the Save button. There is also `validationError` state that is only populated after a user clicks Save. These two paths are parallel: `validError !== null` already captures whether saving should be blocked. The `validationError` state is only used to display the error message — but since `validError` contains the same string, both could be unified.",
+      "recommendation": "Remove the `validationError` state. Show the error message using `validError` directly — but only after the first save attempt (gate it with a `hasAttemptedSave` boolean state). This simplifies state management without changing UX."
+    },
+    {
+      "id": "CR-5",
+      "severity": "minor",
+      "dimension": "Separation of Concerns (2)",
+      "file": "src/app/(dashboard)/templates/[id]/edit/page.tsx",
+      "lines": "36-57",
+      "title": "Type re-declaration in server page duplicates TemplateEditorProps shape",
+      "description": "The `initialData` shape is declared inline inside the server page (lines 36–57) as a local mapping, while an identical type already exists as `TemplateEditorProps['initialData']` inside `TemplateEditor.tsx`. Changes to the type must be updated in two places.",
+      "recommendation": "Export `TemplateEditorInitialData` from `TemplateEditorUtils.ts` or from `TemplateEditor.tsx`, then import and use it in the page. This ensures the server-component mapping and the client component stay in sync."
+    }
+  ],
+  "positive_observations": [
+    "Clean separation of pure logic into TemplateEditorUtils.ts — enables unit testing without a DOM and avoids mixing state and computation.",
+    "NEXTAUTH_URL correctly passed server-side as prop to client component — matches spec requirement and avoids Railway reverse-proxy issues.",
+    "Clipboard fallback with window.alert is correctly guarded in try/catch.",
+    "isProtected field delete button is hidden (not just disabled) exactly per spec.",
+    "force-dynamic correctly applied to all three server pages.",
+    "Session guard pattern matches the existing dashboard pattern exactly."
+  ],
+  "verdict": "APPROVE WITH FIXES — CR-2 (save error not surfaced in New page) and CR-1 (type cast) should be fixed before deploy. CR-3, CR-4, CR-5 are optional but recommended."
+}

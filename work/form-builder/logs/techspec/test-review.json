@@ -1,0 +1,66 @@
+{
+  "validator": "test-reviewer",
+  "status": "fail",
+  "findings": [
+    {
+      "severity": "critical",
+      "item": "Submit happy path test is incomplete",
+      "detail": "The listed 'Submit happy path' test (POST /api/templates/[id]/submit returns 201 + snapshots) is the right scenario, but the description does not specify that FieldResponse records are verified — only FormSubmission.companyName and templateName snapshots are mentioned. For a size-L feature, the primary data persistence path must be fully asserted: correct FieldResponse count, fieldLabel snapshots, file response JSON shape. Without this, the test can pass against a broken implementation that creates FormSubmission but drops FieldResponse rows."
+    },
+    {
+      "severity": "critical",
+      "item": "isProtected deletion test maps to no defined API endpoint",
+      "detail": "The test 'PATCH deleting protected field returns 403' references a behavior that has no matching API route in the architecture. The tech-spec defines PATCH /api/templates/[id] as a full-replacement operation (delete all steps/fields + insert new ones) — there is no per-field DELETE endpoint. The isProtected guard is described as a UI concern (hiding the Delete button in the editor). This unit test as written either (a) tests the wrong endpoint or (b) tests behavior the tech-spec does not specify. A test targeting undefined behavior will be written against the implementer's assumption, not the spec."
+    },
+    {
+      "severity": "critical",
+      "item": "Field type validation utility is not defined in the architecture",
+      "detail": "The unit test 'each FieldType produces correct Zod schema' requires a named, isolated function to be testable as a unit. The tech-spec mentions 'validates required fields' in Task 3 but does not add a utility (e.g., buildFieldSchema()) to the Architecture section or any Files to modify list. If this logic is inline in the route handler, the test becomes a route-level integration test, not a unit test. The test scenario cannot be written unambiguously without knowing the function's location and signature."
+    },
+    {
+      "severity": "warning",
+      "item": "No test for template CRUD success path",
+      "detail": "There is no unit test for the core template creation happy path: POST /api/templates with valid name + steps + fields returns 201 and the Company Name field is auto-added. For a size-L feature where this is the foundational admin operation, omitting the success path leaves the most complex write endpoint untested. The two existing CRUD tests cover only validation failures (400) and a protected-field edge case (403)."
+    },
+    {
+      "severity": "warning",
+      "item": "No test for status transition — only the happy path is listed",
+      "detail": "The tech-spec lists 'PATCH /api/submissions/[id]/status with valid transition returns 200; invalid transition returns 400' as a single test scenario. This is correct in spirit, but one test scenario covering two opposite behaviors will result in a test that either only checks the happy path or is split into two implicit cases with no clear pass/fail boundary. For invalid transitions (e.g., APPROVED→NEW, REJECTED→IN_REVIEW), the rejected status codes and error messages are load-bearing — they should be separate named scenarios."
+    },
+    {
+      "severity": "warning",
+      "item": "No test for GET /api/templates/[id]/public returning 404 on deleted template",
+      "detail": "The 'template not found' scenario is covered for the submit endpoint ('Submit — template not found: returns 404') but not for the public GET endpoint that DynamicForm depends on for initial render. The user-spec criterion 'Deleted template link shows This link is no longer available' depends entirely on this 404. Missing this test means the UI behavior for deleted templates is untested at the unit level."
+    },
+    {
+      "severity": "warning",
+      "item": "No auth enforcement test for admin API routes",
+      "detail": "None of the 9 unit tests verify that admin-only routes (POST /api/templates, PATCH /api/templates/[id], GET /api/submissions, etc.) reject unauthenticated requests with 401. For a feature that adds 7 new admin endpoints, at least one representative auth-enforcement test is expected at size L. Without it, a middleware misconfiguration that exposes admin routes publicly would not be caught by the test suite."
+    },
+    {
+      "severity": "warning",
+      "item": "Email extraction logic is untested and unspecified",
+      "detail": "FormSubmission.email is a required column in the schema, but no unit test covers how it is populated from submitted FormData, which FormField type or fieldKey is used as the source, or what happens if the template contains no EMAIL-type field. The submit happy path test does not mention email extraction. This is a data-correctness gap for a required column."
+    },
+    {
+      "severity": "info",
+      "item": "localStorage graceful degradation not covered",
+      "detail": "The localStorage autosave test covers read/write/clear behaviors but omits the degradation case specified in the user-spec: 'if localStorage is unavailable — form works without saving, no error shown.' A test verifying that localStorage.setItem throwing (e.g., quota exceeded or private browsing) does not surface an error to the user would directly validate this user-spec constraint."
+    },
+    {
+      "severity": "info",
+      "item": "No integration/E2E tests — correctly reflected and justified",
+      "detail": "The tech-spec states 'None — agreed in user-spec (no test infrastructure, not worth bootstrapping for v1).' This matches the user-spec decision verbatim ('нет тестовой инфраструктуры, объём не оправдывает затраты на первичную настройку'). The justification is adequate: the project is pre-production and manual verification via the 6-step AVP is the agreed substitute."
+    },
+    {
+      "severity": "info",
+      "item": "T12 (Test Audit) file list is a glob pattern, not explicit paths",
+      "detail": "T12 lists 'All test files in src/__tests__/ and src/app/ matching *.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx created for this feature' — a pattern, not concrete paths. This is acceptable since test files do not exist yet at spec time. However, the audit agent will need to discover files at runtime; the task should note which test files are expected (based on the 9 unit test scenarios) so the auditor can flag if fewer files exist than expected."
+    },
+    {
+      "severity": "info",
+      "item": "Unit test count for size L: 9 scenarios is borderline",
+      "detail": "For a size-L feature adding 7 API routes, 2 new page components, 1 complex form component, and a data model with 5 new tables, 9 unit test scenarios is at the low end. The scenarios cover the right areas (validation, rate limiting, snapshots, localStorage) but critical gaps exist as noted above. Expanding to 13-15 scenarios by adding the missing happy paths and auth tests would bring coverage to adequate for size L."
+    }
+  ]
+}

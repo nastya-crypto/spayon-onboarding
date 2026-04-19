@@ -1,0 +1,55 @@
+{
+  "batch": 4,
+  "iteration": 1,
+  "status": "fail",
+  "findings": [
+    {
+      "task": 10,
+      "severity": "warning",
+      "issue": "Context Files list is incomplete: tech-spec Architecture section lists src/app/(dashboard)/templates/new/page.tsx and src/app/(dashboard)/templates/[id]/edit/page.tsx as new files to create, but both are absent from T10's Context Files. The code audit would skip reviewing these two editor pages.",
+      "fix": "Add src/app/(dashboard)/templates/new/page.tsx and src/app/(dashboard)/templates/[id]/edit/page.tsx to T10 Context Files."
+    },
+    {
+      "task": 10,
+      "severity": "info",
+      "issue": "All 15 feature source files listed in Context Files do not yet exist in the codebase (they are outputs of Waves 1-4). This is structurally correct — T10 depends_on [9] which transitively requires all waves — but an agent that pre-validates file existence before executing will see all references as missing until predecessors complete.",
+      "fix": "No change needed. The dependency chain (T10 depends_on [9], T9 depends_on [5,6,7,8], ...) ensures files exist before T10 runs. Document this in any agent pre-flight check."
+    },
+    {
+      "task": 11,
+      "severity": "warning",
+      "issue": "T11 Context Files section lists only tech-spec.md and architecture.md, but the 'What to do' section explicitly enumerates 10 API route files and 2 UI files that must be read. An agent that uses the Context Files section as the canonical file list will miss all API and UI files during the security audit.",
+      "fix": "Add all files listed in T11 'What to do' steps 1-2 to the Context Files section: src/app/api/templates/route.ts, src/app/api/templates/[id]/route.ts, src/app/api/templates/[id]/public/route.ts, src/app/api/templates/[id]/submit/route.ts, src/app/api/submissions/route.ts, src/app/api/submissions/[id]/route.ts, src/app/api/submissions/[id]/status/route.ts, src/middleware.ts, src/app/(onboarding)/onboarding/[templateId]/DynamicForm.tsx, src/app/(dashboard)/submissions/[id]/page.tsx."
+    },
+    {
+      "task": 12,
+      "severity": "critical",
+      "issue": "Context Files references ~/.claude/skills/project-knowledge/testing.md but this file does not exist. The path /Users/anastasiabaranova/Developer/spayon-onboarding/.claude/skills/project-knowledge/testing.md is absent — only a references/ subdirectory exists under project-knowledge. An agent will get a read error when loading context.",
+      "fix": "Either create the testing.md file in .claude/skills/project-knowledge/ with relevant testing conventions, or remove the reference from T12 Context Files if it is not needed (T12's What to do is self-sufficient from tech-spec alone)."
+    },
+    {
+      "task": 12,
+      "severity": "info",
+      "issue": "Tech-spec Testing Strategy section header says '13 unit test scenarios' but lists 14 items (the localStorage autosave scenario is called out as a '14th scenario' in T12 itself). T12 What to do correctly lists all 14 scenarios and the report schema correctly sets total_scenarios to 14. No actual mismatch in the task, but the tech-spec section header count (13) differs from the task's enumeration count (14).",
+      "fix": "Cosmetic only — no fix required for T12. Optionally update tech-spec 'Unit tests' section to say 14 scenarios to match T12's count."
+    },
+    {
+      "task": 13,
+      "severity": "info",
+      "issue": "Task 13 'Required Skills' header uses Russian ('Перед выполнением задачи загрузи:') while the rest of the task body is in English. Same pattern in T14. Language inconsistency is cosmetic but may confuse agents configured for English-only parsing.",
+      "fix": "Translate the Russian skill-loading header to English for consistency with the rest of T13 and T14 bodies, or standardise all tasks to use Russian for that section."
+    },
+    {
+      "task": 13,
+      "severity": "info",
+      "issue": "T13 report output path is work/form-builder/logs/working/task-13/qa-report.md (markdown, not JSON). This is intentional for a QA report but differs from T10/T11/T12 which write JSON. No structural problem, but the batch reality-checker instruction asks to verify 'report output paths use the correct feature-anchored format'. All paths use the correct work/form-builder/logs/working/task-N/ prefix — format is consistent.",
+      "fix": "No fix needed."
+    },
+    {
+      "task": 14,
+      "severity": "info",
+      "issue": "T14 has no structured report output path defined. Post-completion asks to write to decisions.md only. For a deploy task this is acceptable, but there is no machine-readable artifact for downstream audit or rollback tracking.",
+      "fix": "Optionally add a report output to work/form-builder/logs/working/task-14/deploy-report.json for consistency, but not required for operational correctness."
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "reviewer": "security-auditor",
+  "task": 1,
+  "round": 1,
+  "status": "approved",
+  "findings": [
+    {
+      "id": "SA-1",
+      "severity": "low",
+      "file": "prisma/schema.prisma",
+      "line": 220,
+      "description": "FieldResponse.value is `String @db.Text` with no length constraint at the schema level. This field stores arbitrary user input, including file upload metadata as JSON. Without an application-level size limit, a malicious client could submit a very large text value, potentially causing write amplification against the database. The tech-spec mandates Zod validation with `value: z.string().max(10000)` at the API layer (Decision 10), but that enforcement is not yet in place — it is deferred to Task 3.",
+      "suggestion": "No schema change needed here. Confirm that Task 3 (public submit endpoint) enforces `z.string().max(10000)` on all text/textarea FieldResponse values before any submissions can be persisted. This finding is a reminder for the Task 3 security review."
+    },
+    {
+      "id": "SA-2",
+      "severity": "low",
+      "file": "prisma/schema.prisma",
+      "line": 205,
+      "description": "FormSubmission.email is nullable (`String?`) and populated at submit time from user-supplied input. At the schema level there is no validation of the email format. A malformed or adversarial email value could be stored. This is an application-layer concern, but worth flagging for the Task 3 review.",
+      "suggestion": "Task 3 submit endpoint must validate the email value using `z.string().email()` before storing. Schema-level enforcement is not possible in Prisma without a custom DB constraint."
+    },
+    {
+      "id": "SA-3",
+      "severity": "info",
+      "file": "prisma/schema.prisma",
+      "line": 205,
+      "description": "SetNull behavior on `FormSubmission.templateId` is correct. When a FormTemplate is deleted, existing submissions retain all their data (templateName snapshot, responses, companyName). There is no data leak risk — SetNull nullifies only the FK, the submission row itself is fully preserved. This is the intended behavior per Decision 4.",
+      "suggestion": "No action required. The onDelete: SetNull pattern correctly supports US-10 (deleting a template does not cascade-delete submissions)."
+    },
+    {
+      "id": "SA-4",
+      "severity": "info",
+      "file": "prisma/schema.prisma",
+      "line": 220,
+      "description": "SetNull behavior on `FieldResponse.fieldId` is correct. Deleting a FormField nullifies the FK but preserves the FieldResponse row including the fieldLabel snapshot and value. There is no orphan data leak — admin can still see all submitted values via the fieldLabel snapshot.",
+      "suggestion": "No action required. Correct per Decision 4."
+    },
+    {
+      "id": "SA-5",
+      "severity": "info",
+      "file": "prisma/schema.prisma",
+      "line": 165,
+      "description": "Cascade deletes on FormTemplate → FormStep → FormField are correctly scoped. Deleting a FormTemplate triggers cascade on FormStep (which triggers cascade on FormField), but does NOT cascade to FormSubmission (SetNull) or FieldResponse (which is attached to FormSubmission, not FormField). This means no submission data is ever destroyed by a template deletion.",
+      "suggestion": "No action required. Cascade chain is correctly scoped to the template structure only."
+    },
+    {
+      "id": "SA-6",
+      "severity": "info",
+      "file": "prisma/seed.ts",
+      "line": null,
+      "description": "The seed file does not expose any sensitive data. It creates only structural records (FormTemplate, FormStep, FormField) with no PII, no credentials, and no tokens. The admin user password is read from `ADMIN_PASSWORD` env var and bcrypt-hashed (cost factor 12) before storage — this is correct and unchanged from the prior implementation.",
+      "suggestion": "No action required."
+    },
+    {
+      "id": "SA-7",
+      "severity": "medium",
+      "file": "src/app/api/onboarding/submit/route.ts",
+      "line": 28,
+      "description": "The legacy submit route (`/api/onboarding/submit`) still exists and is reachable, but `prisma.onboardingToken.updateMany` will now throw a runtime error because the `OnboardingToken` model was removed from the Prisma client. The route will return a 500 error instead of processing submissions. This is not a security vulnerability per se — the route cannot succeed — but it leaves a dead endpoint that returns 500 rather than 404 or 410 Gone, which could confuse monitoring or be mistaken for a live attack surface.",
+      "suggestion": "Acceptable as a temporary state pending Task 9 deletion. No immediate action needed. Task 9 must delete this route before any production deployment to eliminate the dead endpoint entirely."
+    }
+  ],
+  "summary": "No blocking security issues found in Task 1. The schema does not expose sensitive data beyond business-necessary fields. OnDelete behaviors are correctly designed: Cascade scoped to owned structural records only (steps, fields, field responses via submission), SetNull used for nullable FKs (templateId on submissions, fieldId on responses) to preserve submission data after deletions — this correctly implements Decision 4 with no data leak risk. The bcrypt-hashed admin password seeding is unchanged and correct. Two low-severity items are flagged as reminders for downstream tasks: (1) FieldResponse.value must have a Zod `.max()` limit enforced in Task 3 to prevent write-amplification; (2) email values must be validated with `z.string().email()` at submit time. The legacy onboarding routes will error at runtime (500) due to the removed Prisma model, but this is the intended temporary state pending Task 9 cleanup and not a security risk."
+}

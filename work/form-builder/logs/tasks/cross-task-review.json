@@ -1,0 +1,59 @@
+{
+  "status": "fail",
+  "findings": [
+    {
+      "severity": "critical",
+      "tasks": [2, 3],
+      "issue": "T3 depends_on T2 but both are assigned wave: 2. If the execution engine starts all wave-2 tasks simultaneously and only enforces depends_on across wave boundaries, T3 will start before T2 has created src/lib/form-validation.ts. T3's own Details section acknowledges this risk with a fallback note ('stub the validation inline'), which confirms the authors were aware of a race but did not resolve it structurally.",
+      "fix": "Move T3 to wave: 3 (same wave as T5/T6/T7/T8, which also depend on T2). Alternatively, if the engine always enforces depends_on intra-wave, add a comment to both tasks confirming this guarantee. Remove the 'stub inline' fallback note from T3 once the ordering is guaranteed."
+    },
+    {
+      "severity": "critical",
+      "tasks": [13, 14],
+      "issue": "T14 depends_on: [13] but both are assigned wave: 6. Same intra-wave sequencing problem: if the engine launches all wave-6 tasks in parallel, T14 (Deploy) could start before T13 (Pre-deploy QA) is complete, pushing unverified code to production.",
+      "fix": "Move T14 to wave: 7 so the wave boundary enforces T13 completion before T14 begins. This is the highest-risk instance of the pattern because it gates a production deploy."
+    },
+    {
+      "severity": "warning",
+      "tasks": [4],
+      "issue": "T4 implementation hints instruct importing the SubmissionStatus enum from '@/generated/prisma/client'. All other tasks (T2, T3, T6, T7) reference the Prisma singleton from '@/lib/db' and do not specify a generated-client path. If the project uses the standard '@prisma/client' output location, '@/generated/prisma/client' will not resolve and will cause a build failure. This path appears only in T4.",
+      "fix": "Verify the actual prisma output path in prisma/schema.prisma (output field under generator client). If it is the default '@prisma/client', update T4's implementation hint to use 'import { SubmissionStatus } from \"@prisma/client\"'. If the project genuinely outputs to src/generated/prisma, add the same import pattern as a note to T2 and T3 for consistency."
+    },
+    {
+      "severity": "warning",
+      "tasks": [7, 9],
+      "issue": "T7 modifies StatusChanger.tsx to replace merchantId with submissionId and states 'ensure merchants/[id]/page.tsx still compiles until Task 9 deletes it'. T9 depends_on includes T7 (correct). However, T7's own implementation hints offer two approaches: (a) replace merchantId entirely and patch merchants/[id]/page.tsx temporarily, or (b) keep merchantId as an optional deprecated alias. Approach (b) would leave a deprecated prop on a shared component, and T9's cleanup task does not mention removing it from StatusChanger. If approach (b) is chosen, the deprecated prop will remain after T9 runs.",
+      "fix": "Standardize on approach (a): replace merchantId with submissionId in T7, update the temporary call-site in merchants/[id]/page.tsx, and confirm T9 does not need to touch StatusChanger.tsx. Document this choice in T7 to prevent ambiguity."
+    },
+    {
+      "severity": "warning",
+      "tasks": [6],
+      "issue": "T6 modifies src/components/dashboard/MerchantsTable.tsx in-place (renames the export to SubmissionsTable). T5 also reads MerchantsTable.tsx as a context/reference file. Both are in wave 3 and run in parallel. While T5 only reads MerchantsTable.tsx for reference (not modifying it), T6 modifies it. If T5 is mid-execution when T6 rewrites the file, T5's reference read could be stale or mismatched. More importantly, T5 creates new files that do not import MerchantsTable.tsx, so there is no runtime conflict — but the file is being read-and-written in the same wave.",
+      "fix": "Low risk in practice since T5 reads MerchantsTable.tsx only as a style reference, not as a dependency. Mark T5's use as read-only reference. No depends_on change needed, but T6 should be documented as the sole owner of MerchantsTable.tsx modifications."
+    },
+    {
+      "severity": "info",
+      "tasks": [2, 3],
+      "issue": "src/lib/form-validation.ts is created exclusively by T2 — no other task creates it. T3 is the only consumer at API level; T8 (DynamicForm) performs its own client-side validation inline and does not import form-validation.ts. Ownership is clean.",
+      "fix": "No action required. Confirmed single owner (T2), single API consumer (T3)."
+    },
+    {
+      "severity": "info",
+      "tasks": [3, 9],
+      "issue": "src/middleware.ts is modified by T3 (wave 2, adds public path allowlist) and T9 (wave 4, removes legacy /api/onboarding/submit entry). These are in strictly sequential waves with T9 depending on all of T1-T8, so there is no concurrent write conflict.",
+      "fix": "No action required. Sequential waves prevent conflicts."
+    },
+    {
+      "severity": "info",
+      "tasks": [10, 11, 12],
+      "issue": "T10, T11, T12 all depend on T9 and run in wave 5 in parallel. Each writes its report to a separate directory (task-10/, task-11/, task-12/) and reads the same source files read-only. No shared write targets. Safe for parallel execution.",
+      "fix": "No action required. Read-only audits with separate output paths are safe to parallelize."
+    },
+    {
+      "severity": "info",
+      "tasks": [9],
+      "issue": "T9 depends_on: [1,2,3,4,5,6,7,8] — explicitly lists every task that uses the files being deleted, including T5/T6/T7/T8. The dependency T9→T7 (StatusChanger consumer before StatusChanger.tsx is changed by T7, and merchants/[id]/page.tsx deleted by T9) is correctly expressed.",
+      "fix": "No action required. Dependency chain is correctly modeled."
+    }
+  ]
+}

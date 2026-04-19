@@ -25,7 +25,9 @@ export default withAuth(
           pathname.startsWith("/onboarding") ||
           pathname.startsWith("/api/auth") ||
           pathname.startsWith("/api/onboarding/submit") ||
-          pathname.startsWith("/api/health")
+          pathname.startsWith("/api/health") ||
+          pathname.match(/^\/api\/templates\/[^/]+\/public$/) !== null ||
+          pathname.match(/^\/api\/templates\/[^/]+\/submit$/) !== null
         ) {
           return true;
         }

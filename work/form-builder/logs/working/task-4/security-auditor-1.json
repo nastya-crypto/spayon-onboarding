@@ -1,0 +1,49 @@
+{
+  "reviewer": "security-auditor",
+  "task": 4,
+  "round": 1,
+  "status": "approved",
+  "findings": [
+    {
+      "id": "SA-1",
+      "severity": "low",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 28,
+      "description": "No try/catch around `req.json()`. An attacker sending a request with an empty body or invalid Content-Type will cause an unhandled JSON parse exception, returning a 500 with a potentially framework-revealing stack trace instead of a controlled 400.",
+      "suggestion": "Wrap body parsing in try/catch: `let body; try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }` This eliminates the uncontrolled error surface."
+    },
+    {
+      "id": "SA-2",
+      "severity": "info",
+      "file": "src/app/api/submissions/route.ts",
+      "line": 17,
+      "description": "Email non-leakage: the `select` object explicitly lists only `{ id, companyName, templateName, status, createdAt }`. Email is provably absent from the Prisma query projection, not just stripped after fetch. This is the correct implementation and confirms the requirement is satisfied at the query level, not just in response serialization.",
+      "suggestion": "No action needed — this is a positive confirmation. Noted for audit trail."
+    },
+    {
+      "id": "SA-3",
+      "severity": "info",
+      "file": "src/app/api/submissions/[id]/route.ts",
+      "line": 20,
+      "description": "The detail endpoint returns the full `FormSubmission` object via `include: { responses: true }`. This includes the `email` field (nullable) and all `FieldResponse` values, which is intentional per spec (admin-only, role-gated). No over-exposure concern given the ADMIN role guard.",
+      "suggestion": "No action needed. Confirm that this endpoint is never reachable by non-ADMIN roles — the guard at lines 12-15 ensures this."
+    },
+    {
+      "id": "SA-4",
+      "severity": "info",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 31,
+      "description": "Status value validation uses `Object.values(SubmissionStatus)` as an allowlist. This correctly rejects arbitrary strings before any DB interaction. The validation happens before the `findUnique` call, so an invalid status cannot trigger an unnecessary DB round-trip.",
+      "suggestion": "No action needed. The validation order (parse → validate enum → DB lookup → transition check) is correct and follows the principle of failing fast."
+    },
+    {
+      "id": "SA-5",
+      "severity": "info",
+      "file": "src/app/api/submissions/[id]/status/route.ts",
+      "line": 9,
+      "description": "The `VALID_TRANSITIONS` map explicitly sets `APPROVED: []` and `REJECTED: []`. Terminal states have an empty allowedTransitions array, meaning any transition request from a terminal state will hit the `!allowedTransitions.includes(newStatus)` guard and return 400. Self-transitions (e.g. IN_REVIEW→IN_REVIEW) are also blocked because IN_REVIEW is not in its own transitions array.",
+      "suggestion": "No action needed. The guard is comprehensive and correct."
+    }
+  ],
+  "summary": "All three routes implement admin-only access correctly: `getServerSession(authOptions)` is used (not `getToken`), 401 is returned on missing session, 403 on non-ADMIN role. Email is excluded from the list endpoint at the query projection level (explicit Prisma `select`), eliminating any risk of accidental leakage. The status transition guard is comprehensive — all four enum states are mapped, terminal states map to empty arrays, and unknown status values are rejected before DB lookup. The only actionable security finding is the absence of a try/catch around JSON body parsing in the PATCH route, which could expose a 500 error surface on malformed requests. This is low severity given the ADMIN-only access requirement. No high or critical findings."
+}

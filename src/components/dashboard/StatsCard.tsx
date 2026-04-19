@@ -12,7 +12,7 @@ export function StatsCard({ title, value, borderColor, textColor, bgColor }: Sta
       <p className="text-sm font-medium text-gray-500">{title}</p>
       <p className={`text-4xl font-bold mt-2 ${textColor}`}>{value}</p>
       <div className={`mt-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
-        заявок
+        submissions
       </div>
     </div>
   );

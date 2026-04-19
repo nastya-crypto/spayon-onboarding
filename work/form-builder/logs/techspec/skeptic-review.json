@@ -1,0 +1,111 @@
+{
+  "validator": "skeptic",
+  "status": "fail",
+  "findings": [
+    {
+      "severity": "warning",
+      "item": "src/lib/supabase.ts — upload pattern claim",
+      "detail": "Tech spec Decision 6 states 'Same upload pattern as src/lib/supabase.ts', implying upload logic lives there. In reality, src/lib/supabase.ts only exports getSupabaseAdmin() — a lazy client factory with no upload logic. The actual upload pattern (storage.from().upload() + getPublicUrl()) lives in src/app/api/onboarding/submit/route.ts. The reference is misleading: implementers reading the task will look for an upload helper in supabase.ts and find none."
+    },
+    {
+      "severity": "info",
+      "item": "src/lib/db.ts",
+      "detail": "Exists. Prisma singleton confirmed present."
+    },
+    {
+      "severity": "info",
+      "item": "src/lib/rate-limit.ts — exports rateLimit()",
+      "detail": "Exists. Exports rateLimit() function confirmed at line 13."
+    },
+    {
+      "severity": "info",
+      "item": "src/lib/auth/auth-options.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/components/onboarding/ProgressBar.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/components/dashboard/MerchantsTable.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/components/dashboard/StatsCard.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/components/dashboard/CreateLinkButton.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/components/dashboard/StatusChanger.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/(dashboard)/dashboard/page.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/(dashboard)/merchants/[id]/page.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/api/merchants/route.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/api/merchants/[id]/status/route.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/api/onboarding/submit/route.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/api/onboarding/create-link/route.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/(onboarding)/onboarding/[token]/page.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/(onboarding)/onboarding/[token]/OnboardingForm.tsx",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/middleware.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "prisma/schema.prisma — has OnboardingToken model",
+      "detail": "Exists. OnboardingToken model confirmed present at line 165."
+    },
+    {
+      "severity": "info",
+      "item": "prisma/seed.ts",
+      "detail": "Exists."
+    },
+    {
+      "severity": "info",
+      "item": "src/app/api/health/route.ts",
+      "detail": "Exists."
+    }
+  ]
+}

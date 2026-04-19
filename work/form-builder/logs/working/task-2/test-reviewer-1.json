@@ -1,0 +1,81 @@
+{
+  "reviewer": "test-reviewer",
+  "task": "2",
+  "round": 1,
+  "status": "needs_changes",
+  "findings": [
+    {
+      "id": "TR-01",
+      "severity": "high",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "189-206",
+      "description": "TDD Anchor 'DELETE /api/templates/[id] — returns 204 and template gone' is only half-covered. The test verifies `res.status === 204` and that `mockDelete` was called with the correct where clause. However, the anchor also requires verifying that 'FormSubmission.templateId is set to null' — this is not tested at all. The SetNull behavior is a schema-level cascade, but the test should at minimum assert that submissions are NOT deleted (i.e. the test mock could include a `FormSubmission.findMany` call that still returns data, or a comment explaining this is schema-enforced and not testable at the unit level).",
+      "suggestion": "Either add a comment explicitly documenting that SetNull is schema-enforced (not testable in unit tests) and is covered by the schema review, or add a mock for `prisma.formSubmission.findMany` and assert it still returns records after DELETE. The former (comment) is acceptable; the latter provides stronger coverage."
+    },
+    {
+      "id": "TR-02",
+      "severity": "medium",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "157-187",
+      "description": "The PATCH protected field removal test mocks `prisma.formField.findMany` but does NOT mock `prisma.$transaction`. The PATCH handler calls `prisma.$transaction(async (tx) => {...})` only after the protected field check. Since `mockFieldFindMany` is set up to return the protected field, the guard should trigger before `$transaction` is reached — making the test pass as written. However, if the guard logic ever changes to move inside the transaction, the test would silently start testing a different code path. More importantly, the test relies on the transaction mock being unconfigured (returning `undefined`), which is fragile.",
+      "suggestion": "Add an explicit `mockTransaction.mockResolvedValue(...)` setup for clarity. Also assert `expect(mockTransaction).not.toHaveBeenCalled()` to confirm the guard fires before the transaction — this makes the test more robust and documents the intended execution flow."
+    },
+    {
+      "id": "TR-03",
+      "severity": "medium",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "60-118",
+      "description": "POST happy path test mocks `prisma.formTemplate.create` to return a pre-constructed object that already has `isProtected: true` on the first field. The test validates the response shape from the mock, not that the actual `create` call was invoked with the Company Name field prepended. If the production code were to stop inserting the Company Name field (regression), `mockCreate` would still return the pre-built response and the test would still pass — a false positive.",
+      "suggestion": "Add an assertion on what `mockCreate` was called with: `expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ steps: expect.objectContaining({ create: expect.arrayContaining([expect.objectContaining({ fields: expect.objectContaining({ create: expect.arrayContaining([expect.objectContaining({ label: 'Company Name', isProtected: true })]) }) })]) }) }) }))`. This verifies the Prisma create payload, not just the response."
+    },
+    {
+      "id": "TR-04",
+      "severity": "low",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "1-206",
+      "description": "There is no test for `GET /api/templates` happy path (ADMIN role, returns template list). The TDD Anchor list includes 'GET /api/templates — unauthorized' and 'GET /api/templates — wrong role' but not the 200 success case. The acceptance criteria includes 'GET /api/templates returns 200 with template list for ADMIN'. This success path is not tested.",
+      "suggestion": "Add a test: mock `mockSession` with `adminSession`, mock `mockFindMany` to return an array with one template, call `GET()`, assert `res.status === 200`, and assert `data.templates` has length 1."
+    },
+    {
+      "id": "TR-05",
+      "severity": "low",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "1-206",
+      "description": "There is no test for `GET /api/templates/[id]` — the spec requires a test for the single template fetch with full nested structure. Neither the happy path (200 with nested steps/fields) nor the 404 (template not found) case is tested for the [id] GET handler.",
+      "suggestion": "Add tests for: (1) GET /api/templates/[id] — happy path: `mockFindUnique` returns template, assert 200 and nested structure present; (2) GET /api/templates/[id] — not found: `mockFindUnique` returns null, assert 404."
+    },
+    {
+      "id": "TR-06",
+      "severity": "low",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "1-206",
+      "description": "PATCH happy path (successful full-replacement) is not tested. The test suite only covers the protected field removal 400 case for PATCH. There is no test confirming that a valid PATCH body with all protected fields present executes the transaction, returns 200, and returns the updated template structure.",
+      "suggestion": "Add a PATCH happy path test: mock `mockFieldFindMany` to return the protected field with `company-name`, include it in the request body, mock `mockTransaction` to return the updated template, assert `res.status === 200` and `mockTransaction` was called."
+    },
+    {
+      "id": "TR-07",
+      "severity": "low",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "1-206",
+      "description": "404 cases for PATCH and DELETE when template is not found are not tested. The spec says 'Template not found: return 404' for GET, PATCH, DELETE.",
+      "suggestion": "Add tests: (1) PATCH with `mockFindUnique` returning null → assert 404; (2) DELETE with `mockFindUnique` returning null → assert 404."
+    },
+    {
+      "id": "TR-08",
+      "severity": "info",
+      "file": "src/__tests__/lib/form-validation.test.ts",
+      "line": "1-71",
+      "description": "All 5 TDD Anchor tests from the spec are present and pass. The test file also has 4 additional bonus tests (NUMBER, CHECKBOX, TEXTAREA max length, FILE field). Coverage is excellent for `buildZodSchema`. The TEXTAREA test at line 56-61 correctly verifies the max(10000) boundary (10000 chars passes, 10001 throws). All assertions are meaningful and test real behavior, not mocks.",
+      "suggestion": "No changes needed. Consider adding a test for URL field accepting a valid URL (positive case, mirroring the EMAIL positive test) for symmetry."
+    },
+    {
+      "id": "TR-09",
+      "severity": "info",
+      "file": "src/__tests__/api/templates.test.ts",
+      "line": "1-22",
+      "description": "Mocking strategy is correct. `next-auth`, `@/lib/auth/auth-options`, and `@/lib/db` are all mocked at the module level before any imports. The `prisma.$transaction` is mocked as a jest.fn(), which correctly prevents real DB calls. The tests use `jest.clearAllMocks()` in `beforeEach` which is the correct pattern to avoid inter-test state bleed.",
+      "suggestion": "No action needed."
+    }
+  ],
+  "summary": "All 7 TDD Anchor tests from the task file are present and all 16 tests pass (confirmed via `npx jest` run). The `form-validation.test.ts` file is thorough and well-written. However, `templates.test.ts` has significant gaps beyond the TDD Anchors: missing GET happy path, missing GET /api/templates/[id] tests, missing PATCH happy path, missing 404 cases, and the POST happy path assertion is a false positive (tests mock response rather than create call inputs). The 'DELETE and template gone' anchor is only half-covered (no assertion about FormSubmission SetNull behavior). Status: needs_changes — the spec-required tests pass, but coverage gaps create regression risk for future changes."
+}

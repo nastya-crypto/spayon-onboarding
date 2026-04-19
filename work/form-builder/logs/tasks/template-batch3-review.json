@@ -1,0 +1,49 @@
+{
+  "batch": 3,
+  "iteration": 1,
+  "status": "fail",
+  "findings": [
+    {
+      "task": 12,
+      "severity": "warning",
+      "section": "Acceptance Criteria",
+      "issue": "AC says 'All 13 scenarios verified present and meaningful' but the What to do step 3 lists 14 scenarios (items 1–14, with localStorage autosave as item 14). The report schema also uses `total_scenarios: 14`. The AC count (13) contradicts the task body (14).",
+      "fix": "Change AC to: 'All 14 scenarios verified present and meaningful' to match the numbered list in What to do and the report schema."
+    },
+    {
+      "task": 13,
+      "severity": "warning",
+      "section": "Required Skills / Post-completion",
+      "issue": "Language inconsistency: 'Required Skills' section uses Russian ('Перед выполнением задачи загрузи:') and Post-completion items are in Russian ('Записать краткий отчёт в decisions.md', 'Если отклонились от спека — описать', 'Обновить user-spec/tech-spec'). Tasks 11 and 12 use English for these sections.",
+      "fix": "Translate the Required Skills preamble and Post-completion checklist items in task 13 to English for consistency with tasks 11 and 12."
+    },
+    {
+      "task": 14,
+      "severity": "warning",
+      "section": "Required Skills / Post-completion",
+      "issue": "Language inconsistency: 'Required Skills' section uses Russian ('Перед выполнением задачи загрузи:') and Post-completion items are in Russian ('Записать краткий отчёт в decisions.md по шаблону', 'Если отклонились от спека — описать отклонение и причину', 'Обновить user-spec/tech-spec если что-то изменилось'). Tasks 11 and 12 use English for these sections.",
+      "fix": "Translate the Required Skills preamble and Post-completion checklist items in task 14 to English for consistency."
+    },
+    {
+      "task": 11,
+      "severity": "info",
+      "section": "Context Files",
+      "issue": "Context Files section lists only tech-spec.md and architecture.md. The 10 source files to audit (API routes, middleware, UI files) are referenced only in the What to do steps, not in Context Files. This is slightly inconsistent with the purpose of the Context Files section but does not break the task.",
+      "fix": "No action required — the What to do section fully enumerates all files to read. Optionally add a note in Context Files pointing to the file list in What to do."
+    },
+    {
+      "task": 12,
+      "severity": "info",
+      "section": "Context Files",
+      "issue": "Context Files section lists tech-spec.md and testing.md but does not reference the test file glob patterns. These are correctly specified in the Details section. No structural gap.",
+      "fix": "No action required — test file patterns are in Details section which is the correct location."
+    },
+    {
+      "task": 13,
+      "severity": "info",
+      "section": "Verification Steps / Details",
+      "issue": "Tech-spec lists 9 acceptance criteria. The Details section in task 13 lists 9 tech-spec criteria. However one tech-spec AC ('Existing auth flow unchanged') is not explicitly listed as a manual verification step — it is only mentioned in the Details list. This is a minor coverage gap, not a structural issue.",
+      "fix": "Consider adding 'Verify login flow still works (not broken by schema migration)' as a verification step under User section."
+    }
+  ]
+}

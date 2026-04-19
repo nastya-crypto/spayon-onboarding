@@ -1,0 +1,152 @@
+{
+  "validator": "tech-spec-validator",
+  "checks": [
+    {
+      "name": "Section: Solution present",
+      "pass": true,
+      "finding": "Solution section present and describes the replacement system clearly."
+    },
+    {
+      "name": "Section: Architecture present",
+      "pass": true,
+      "finding": "Architecture section present with subsections: What we're building/modifying, How it works, Shared resources."
+    },
+    {
+      "name": "Section: Decisions present",
+      "pass": true,
+      "finding": "8 Decisions present, each with Decision statement, Rationale, and Alternatives considered."
+    },
+    {
+      "name": "Section: Data Models present",
+      "pass": true,
+      "finding": "Data Models section present with full Prisma schema blocks for all 5 new models and 2 new enums. Remove and Seed notes included."
+    },
+    {
+      "name": "Section: Dependencies present",
+      "pass": true,
+      "finding": "Dependencies section present with New packages (none) and Using existing list."
+    },
+    {
+      "name": "Section: Testing Strategy present",
+      "pass": true,
+      "finding": "Testing Strategy present with unit tests list, integration and E2E justifications."
+    },
+    {
+      "name": "Section: Agent Verification Plan present",
+      "pass": true,
+      "finding": "Agent Verification Plan present, referencing user-spec 'Как проверить' section."
+    },
+    {
+      "name": "Section: Risks present",
+      "pass": true,
+      "finding": "Risks section present as a table with 4 risks and mitigations."
+    },
+    {
+      "name": "Section: User-Spec Deviations present",
+      "pass": true,
+      "finding": "User-Spec Deviations section present with 3 entries, each marked with rationale and [PENDING USER APPROVAL] or [TECHNICAL]."
+    },
+    {
+      "name": "Section: Acceptance Criteria present",
+      "pass": true,
+      "finding": "Acceptance Criteria section present with 9 checkboxes."
+    },
+    {
+      "name": "Section: Implementation Tasks present",
+      "pass": true,
+      "finding": "Implementation Tasks section present with wave structure."
+    },
+    {
+      "name": "Frontmatter: created field valid",
+      "pass": true,
+      "finding": "created: 2026-04-17 — valid ISO date matching today's date."
+    },
+    {
+      "name": "Frontmatter: status field valid",
+      "pass": true,
+      "finding": "status: draft — valid value."
+    },
+    {
+      "name": "Frontmatter: branch field valid",
+      "pass": true,
+      "finding": "branch: main — valid."
+    },
+    {
+      "name": "Frontmatter: size field valid",
+      "pass": true,
+      "finding": "size: L — valid."
+    },
+    {
+      "name": "Task count <= 15",
+      "pass": true,
+      "finding": "14 tasks total (T1-T14). Within the 15-task limit."
+    },
+    {
+      "name": "Each task has: Description (2-3 sentences, WHAT/WHY not HOW)",
+      "pass": false,
+      "finding": "Task 1 description is a single long run-on sentence that lists HOW (enumerate all models by name, enumerate what seed does step by step). Task 6 description partially describes HOW ('fetches from GET /api/submissions'). Task 9 description enumerates HOW (lists all files to delete by name in the description itself, which duplicates Files to modify). Template: descriptions should state WHAT and WHY, not enumerate implementation steps."
+    },
+    {
+      "name": "Each task has: Skill field",
+      "pass": true,
+      "finding": "All 14 tasks have a Skill field. Values: code-writing (T1-T9), code-reviewing (T10), security-auditor (T11), test-master (T12), pre-deploy-qa (T13), deploy-pipeline (T14)."
+    },
+    {
+      "name": "Each task has: Reviewers field",
+      "pass": false,
+      "finding": "Tasks T10, T11, T12, T13, T14 have 'Reviewers: none' — this is expected for Audit/Final wave tasks. However T9 (Legacy Cleanup) only has 'code-reviewer' as reviewer, with no test-reviewer despite it touching middleware and potentially breaking public routes. Minor — not a structural failure."
+    },
+    {
+      "name": "Each task has: Files to modify",
+      "pass": false,
+      "finding": "Tasks T10 (Code Audit), T11 (Security Audit), T12 (Test Audit), T13 (Pre-deploy QA), T14 (Deploy) have no 'Files to modify' field. Audit and QA/Deploy tasks by nature do not modify files — this is acceptable for these task types. However, T10 and T11 descriptions say 'Write audit report' which implies a file is modified/created but no output file path is specified. Minor structural gap."
+    },
+    {
+      "name": "Each task has: Files to read",
+      "pass": false,
+      "finding": "Tasks T10, T11, T12, T13, T14 are missing 'Files to read' fields. T10 says 'Read all source files created/modified in this feature' in description, but no explicit file list. Audit tasks benefit from explicit file lists to ensure the agent reads the right scope. T13 and T14 similarly have no Files to read. Minor — acceptable for meta-tasks but inconsistent with template."
+    },
+    {
+      "name": "No AC or TDD anchors in task descriptions",
+      "pass": false,
+      "finding": "Task 5 description contains 'On save: calls template API' which borders on HOW, but not an AC anchor. More significantly, Tasks T5, T6, T7, T8 each contain a 'Verify-user:' field embedded in the task body — this is a non-standard field not part of the task template. While useful, it adds undocumented structure. Not a formal violation but deviates from template."
+    },
+    {
+      "name": "Audit Wave present with 3 tasks (code-reviewing, security-auditor, test-master)",
+      "pass": true,
+      "finding": "Audit Wave present with exactly T10 (code-reviewing), T11 (security-auditor), T12 (test-master)."
+    },
+    {
+      "name": "Final Wave has QA (pre-deploy-qa) + Deploy (deploy-pipeline)",
+      "pass": true,
+      "finding": "Final Wave has T13 (pre-deploy-qa) and T14 (deploy-pipeline) in correct order."
+    },
+    {
+      "name": "Wave dependencies are explicit and non-circular",
+      "pass": false,
+      "finding": "Wave 3 header states 'T5/T6/T7 depend on T2+T4, T8 depends on T3'. However Wave 3 also depends on T1 (schema migration) since all API tasks depend on Task 1. The stated dependency 'T5/T6/T7 depend on T2+T4' correctly implies T1 transitively, but this is not explicit. More importantly: Task 6 (Dashboard refactor) lists in Files to read `src/app/api/submissions/route.ts` which is created in Task 4 — this dependency is correctly captured. Wave 4 (T9) states it 'depends on all Wave 3 tasks' — not explicitly labeled in the wave header but stated in the description as 'depends on all Wave 3 tasks'. The Audit Wave should explicitly state it depends on Wave 4 completion. No circular dependencies detected."
+    },
+    {
+      "name": "Every Decision references a user-spec requirement or is marked [TECHNICAL]",
+      "pass": true,
+      "finding": "Decision 1 references US-4, US-13. Decision 2 references US-12. Decision 3 references US-8. Decision 4 references US-10. Decision 5 marked [TECHNICAL]. Decision 6 references 'US file field type'. Decision 7 marked [TECHNICAL]. Decision 8 references 'US migration decision'. All 8 decisions are properly attributed."
+    },
+    {
+      "name": "Architecture route list is complete (all routes in tasks match Architecture)",
+      "pass": false,
+      "finding": "Architecture 'New API Routes' lists 6 routes. Task 3 creates src/app/api/templates/[id]/public/route.ts which is NOT in the Architecture route list. This is an internal inconsistency — the public GET endpoint is defined in Task 3 and referenced in Task 8 but absent from the Architecture section's canonical route list."
+    },
+    {
+      "name": "User-Spec Deviations: all deviations documented with rationale",
+      "pass": true,
+      "finding": "3 deviations documented: form-uploads bucket [PENDING USER APPROVAL], fieldKey [TECHNICAL], isProtected [TECHNICAL]. However there is an undocumented deviation: tech-spec Task 7 says orphan FieldResponses are rendered; user-spec says they are skipped. This behavioral difference should be in User-Spec Deviations."
+    },
+    {
+      "name": "Pre-deploy QA task references acceptance criteria count accurately",
+      "pass": false,
+      "finding": "Task 13 says 'manually verify all 16 acceptance criteria from user-spec and 9 from tech-spec'. The user-spec has 16 AC checkboxes (correct). The tech-spec has 9 AC checkboxes (correct). Numbers match — pass on count. However the description says '6-step verification plan from user-spec' and the user-spec Как проверить section has exactly 6 steps — consistent."
+    }
+  ],
+  "verdict": "needs_fixes",
+  "summary": "Frontmatter, required sections, wave structure, task count, and Decision attributions all pass. Key failures: (1) Architecture route list is missing the /api/templates/[id]/public route introduced in Task 3 — must be added; (2) Audit/Final wave tasks are missing Files to read/modify fields (acceptable for meta-tasks but inconsistent); (3) Task 1, 6, and 9 descriptions lean toward HOW rather than WHAT/WHY; (4) Wave 4 and Audit wave dependency declarations are implicit rather than explicit in wave headers; (5) The undocumented behavioral deviation on orphan FieldResponse rendering (Task 7 vs user-spec) must be added to User-Spec Deviations; (6) The non-standard 'Verify-user' field in Tasks 5-8 is a template deviation (informative but undocumented). Overall the spec is well-structured with 5 minor format fixes needed before moving to implementation."
+}

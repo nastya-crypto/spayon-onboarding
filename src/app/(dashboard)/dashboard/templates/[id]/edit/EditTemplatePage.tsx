@@ -41,7 +41,8 @@ export function EditTemplatePage({ templateId, initialData }: EditTemplatePagePr
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      const msg = body.error ?? "Failed to update template";
+      const raw = body.error;
+      const msg = typeof raw === "string" ? raw : "Failed to update template";
       setSaveError(msg);
     }
 

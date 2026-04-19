@@ -19,7 +19,8 @@ export function NewTemplatePage() {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      const msg = (body.error ?? "Failed to create template") as string;
+      const raw = body.error;
+      const msg = typeof raw === "string" ? raw : "Failed to create template";
       setSaveError(msg);
     }
 

@@ -82,7 +82,7 @@ export async function PATCH(
   const body = await req.json();
   const parsed = templateBodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
+    return NextResponse.json({ error: parsed.error.issues.map((i) => i.message).join("; ") }, { status: 400 });
   }
 
   const existing = await prisma.formTemplate.findUnique({

@@ -27,10 +27,12 @@ const BUTTONS: { status: Status; label: string; active: string; idle: string }[]
 ];
 
 export function StatusChanger({
+  submissionId,
   merchantId,
   currentStatus,
 }: {
-  merchantId: string;
+  submissionId?: string;
+  merchantId?: string;
   currentStatus: Status;
 }) {
   const router = useRouter();
@@ -41,8 +43,11 @@ export function StatusChanger({
     if (status === currentStatus) return;
     setLoading(status);
     setError(null);
+    const endpoint = submissionId
+      ? `/api/submissions/${submissionId}/status`
+      : `/api/merchants/${merchantId}/status`;
     try {
-      const res = await fetch(`/api/merchants/${merchantId}/status`, {
+      const res = await fetch(endpoint, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TemplateEditor } from "@/components/dashboard/TemplateEditor";
 import type { SavePayload } from "@/components/dashboard/TemplateEditorUtils";
 
 export function NewTemplatePage() {
   const router = useRouter();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function handleSave(data: SavePayload) {
+    setSaveError(null);
     const res = await fetch("/api/templates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -16,7 +19,9 @@ export function NewTemplatePage() {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? "Failed to create template");
+      const msg = (body.error ?? "Failed to create template") as string;
+      setSaveError(msg);
+      throw new Error(msg);
     }
 
     router.push("/dashboard/templates");
@@ -28,6 +33,11 @@ export function NewTemplatePage() {
         <h1 className="text-2xl font-bold text-gray-900">New Template</h1>
         <p className="text-sm text-gray-500 mt-1">Create a new onboarding form template</p>
       </div>
+      {saveError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
       <TemplateEditor onSave={handleSave} />
     </div>
   );

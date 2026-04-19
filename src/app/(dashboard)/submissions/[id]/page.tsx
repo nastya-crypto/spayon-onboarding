@@ -77,10 +77,6 @@ function renderFieldValue(value: string, fieldType: string): React.ReactNode {
   return <span>{value}</span>;
 }
 
-function renderOrphanValue(value: string): React.ReactNode {
-  return <span>{value}</span>;
-}
-
 export default async function SubmissionPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -105,7 +101,8 @@ export default async function SubmissionPage({ params }: { params: { id: string 
 
   if (!submission) notFound();
 
-  const status = submission.status as Status;
+  const statusRaw = submission.status as string;
+  const status: Status = statusRaw in STATUS_BADGE ? (statusRaw as Status) : "NEW";
 
   // Build a set of all field IDs present in the template
   const templateFieldIds = new Set<string>();
@@ -211,7 +208,7 @@ export default async function SubmissionPage({ params }: { params: { id: string 
             <InfoRow
               key={response.id}
               label={response.fieldLabel}
-              value={renderOrphanValue(response.value)}
+              value={<span>{response.value}</span>}
             />
           ))}
         </Section>

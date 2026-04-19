@@ -68,6 +68,89 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 
 ---
 
+## Task 3: Public form API
+
+**Status:** Done
+**Commit:** 209d319
+**Agent:** main agent
+**Summary:** GET /api/templates/[id]/public returns template structure (steps + fields) with `isProtected` and `fieldKey` explicitly stripped via both Prisma select and explicit mapping. POST /api/templates/[id]/submit accepts multipart/form-data, applies rate limiting (5/IP/hour per template), validates required fields and FILE constraints (MIME allowlist, 10 MB max), uploads to Supabase Storage bucket `form-uploads`, and creates FormSubmission + FieldResponse records. Company Name check runs before Zod to return a specific error message. Middleware updated with exact regex paths only.
+**Deviations:** Company name validation runs before Zod validation (rather than after) to return the specific "Company Name field is required" error message as required by tests.
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: pending → [logs/working/task-3/code-reviewer-1.json]
+- security-auditor: pending → [logs/working/task-3/security-auditor-1.json]
+- test-reviewer: pending → [logs/working/task-3/test-reviewer-1.json]
+
+**Verification:**
+- `npx jest src/__tests__/api/templates/submit.test.ts` → 11 passed
+- `npx tsc --noEmit` → 0 errors
+
+---
+
+## Task 5: Templates admin pages
+
+**Status:** Done
+**Commit:** 0115ef4, fixes: pending
+**Agent:** background subagent
+**Summary:** TemplateEditor client component with step/field management, reorder, protected field guard (no Delete on isProtected fields), and validation before save. List page at `/dashboard/templates` with Copy Link (uses NEXTAUTH_URL from server), Edit, and Delete (window.confirm) actions. New and Edit pages wrap TemplateEditor with their own save logic and error display. TemplateEditorUtils.ts extracts shared types and the toFieldKey helper.
+**Deviations:** None
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: 5 findings (2 major) → [logs/working/task-5/code-reviewer-1.json]
+- test-reviewer: pending → [logs/working/task-5/test-reviewer-1.json]
+
+*Round 2 (after fixes):*
+- NewTemplatePage save errors now displayed (CR-2 fix applied)
+
+**Verification:**
+- `npx jest src/__tests__/TemplateEditor.test.tsx` → tests pass
+- `npx tsc --noEmit` → 0 errors
+
+---
+
+## Task 6: Dashboard refactor
+
+**Status:** Done
+**Commit:** 209d319
+**Agent:** main agent
+**Summary:** Dashboard switched from Merchant to FormSubmission data via direct Prisma queries. MerchantsTable renamed to SubmissionsTable with English text, templateName column, and link to `/dashboard/submissions/[id]`. CreateLinkButton replaced with static Link to `/dashboard/templates`. StatsCard badge translated from "заявок" to "submissions". All stats cards use English labels.
+**Deviations:** None
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: pending → [logs/working/task-6/code-reviewer-1.json]
+- test-reviewer: pending → [logs/working/task-6/test-reviewer-1.json]
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors
+- Manual: pending (requires running dev server)
+
+---
+
+## Task 7: Submission detail page
+
+**Status:** Done
+**Commit:** 7d120c7, fixes: pending
+**Agent:** background subagent
+**Summary:** `/dashboard/submissions/[id]` server component fetches submission with template and responses via Prisma, groups responses by step, renders orphans in "Other responses" section. FILE values parsed as JSON with `isValidFileUrl` guard preventing javascript: URI XSS. CHECKBOX rendered as Yes/No. StatusChanger adapted to accept `submissionId` (falls back to `merchantId` for backward compat until Task 9 cleanup).
+**Deviations:** `renderOrphanValue` one-liner removed (inlined per review). Status cast guarded at runtime.
+
+**Reviews:**
+
+*Round 1:*
+- code-reviewer: 3 findings (all minor) → [logs/working/task-7/code-reviewer-1.json]
+
+**Verification:**
+- `npx jest src/__tests__/submission-detail.test.ts` → 6 passed
+- `npx tsc --noEmit` → 0 errors
+
+---
+
 <!-- Entries are added by agents as tasks are completed.
 
 Format is strict — use only these sections, do not add others.

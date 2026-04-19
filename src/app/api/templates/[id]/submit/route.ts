@@ -67,7 +67,8 @@ export async function POST(
     const fileBuffers = new Map<string, { file: File; buffer: ArrayBuffer }>();
 
     for (const field of fileFieldMeta) {
-      const file = formData.get(field.fieldKey) as File | null;
+      // Accept field.id (used by DynamicForm public client) or field.fieldKey (legacy)
+      const file = (formData.get(field.id) ?? formData.get(field.fieldKey)) as File | null;
       if (file && file.size > 0) {
         // Size check before loading into memory
         if (file.size > MAX_FILE_SIZE) {
@@ -95,7 +96,7 @@ export async function POST(
     // Check company name early for a specific error message (before Zod)
     const protectedField = allFields.find((f) => f.isProtected);
     if (protectedField) {
-      const raw = formData.get(protectedField.fieldKey) as string | null;
+      const raw = (formData.get(protectedField.id) ?? formData.get(protectedField.fieldKey)) as string | null;
       if (!raw || !raw.trim()) {
         return NextResponse.json(
           { error: `${protectedField.label} field is required` },
@@ -110,7 +111,8 @@ export async function POST(
     const nonFileFields = allFields.filter((f) => f.type !== "FILE");
     const validationData: Record<string, unknown> = {};
     for (const field of nonFileFields) {
-      const raw = formData.get(field.fieldKey);
+      // Accept field.id (used by DynamicForm public client) or field.fieldKey (legacy)
+      const raw = formData.get(field.id) ?? formData.get(field.fieldKey);
       if (field.type === "NUMBER") {
         validationData[field.fieldKey] = raw !== null && raw !== "" ? Number(raw) : undefined;
       } else if (field.type === "CHECKBOX") {

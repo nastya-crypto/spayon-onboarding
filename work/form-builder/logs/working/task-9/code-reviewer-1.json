@@ -1,0 +1,37 @@
+{
+  "status": "approved",
+  "findings": [
+    {
+      "type": "pass",
+      "check": "file_deletion",
+      "detail": "All 6 legacy files are confirmed deleted: src/app/(onboarding)/onboarding/[token]/OnboardingForm.tsx, src/app/(onboarding)/onboarding/[token]/page.tsx, src/app/api/onboarding/create-link/route.ts, src/app/api/onboarding/submit/route.ts, src/app/api/merchants/route.ts, src/app/api/merchants/[id]/status/route.ts"
+    },
+    {
+      "type": "pass",
+      "check": "middleware_updated",
+      "detail": "src/middleware.ts no longer contains pathname.startsWith(\"/api/onboarding/submit\"). The allowlist correctly retains /login, /register, /onboarding, /api/auth, /api/health, plus the two regex entries for /api/templates/[id]/public and /api/templates/[id]/submit from Task 3."
+    },
+    {
+      "type": "pass",
+      "check": "prisma_schema_unchanged",
+      "detail": "prisma/schema.prisma: Merchant model is intact and unchanged. OnboardingToken model is absent (was already removed in Task 1, as expected). No schema changes were made in this task."
+    },
+    {
+      "type": "pass",
+      "check": "no_ts_import_references",
+      "detail": "No TypeScript import references to the deleted modules were found in the codebase. The only remaining reference to a deleted module's runtime URL is a fetch string in StatusChanger.tsx (see finding below), not an import statement."
+    },
+    {
+      "type": "info",
+      "check": "dangling_runtime_reference",
+      "file": "src/components/dashboard/StatusChanger.tsx",
+      "line": 48,
+      "detail": "StatusChanger.tsx constructs a fetch URL `/api/merchants/${merchantId}/status` when `merchantId` is provided and `submissionId` is absent. This API route has been deleted. The component is used in src/app/(dashboard)/merchants/[id]/page.tsx (line 199) passing only `merchantId` (no `submissionId`), so status changes on the legacy merchant detail page will receive a 404 at runtime. Per the task spec this is acknowledged intentional legacy state — the merchant UI page is explicitly not being deleted. No action required; flagged for awareness."
+    },
+    {
+      "type": "info",
+      "check": "empty_directory_cleanup",
+      "detail": "The spec requires removing now-empty directories: src/app/api/onboarding/create-link/, src/app/api/onboarding/submit/, src/app/api/onboarding/, src/app/(onboarding)/onboarding/[token]/, src/app/api/merchants/[id]/, src/app/api/merchants/. Filesystem tooling was unavailable to verify directory removal; if these directories were not cleaned up they are inert (no route files, no side effects), but should be removed for cleanliness. The build tool will not error on empty directories."
+    }
+  ]
+}

@@ -185,7 +185,7 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 **Reviews:**
 
 *Round 1:*
-- code-reviewer: pending → [logs/working/task-9/code-reviewer-1.json](logs/working/task-9/code-reviewer-1.json)
+- code-reviewer: approved (2 info findings, non-blocking) → [logs/working/task-9/code-reviewer-1.json](logs/working/task-9/code-reviewer-1.json)
 
 **Verification:**
 - `npx tsc --noEmit` → 0 errors

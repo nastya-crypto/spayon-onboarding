@@ -1,10 +1,10 @@
-jest.mock("next-auth", () => ({ getServerSession: jest.fn() }));
-jest.mock("@/lib/auth/auth-options", () => ({ authOptions: {} }));
 jest.mock("@/lib/db", () => ({
   prisma: {
     formTemplate: { findUnique: jest.fn() },
     formSubmission: { create: jest.fn(), delete: jest.fn() },
     fieldResponse: { create: jest.fn() },
+    // batch transaction: resolve all operations in order
+    $transaction: jest.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
 jest.mock("@/lib/rate-limit", () => ({ rateLimit: jest.fn() }));
@@ -21,11 +21,15 @@ jest.mock("@/lib/supabase", () => ({
 
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 const mockFindUnique = prisma.formTemplate.findUnique as jest.Mock;
 const mockSubmissionCreate = prisma.formSubmission.create as jest.Mock;
 const mockFieldResponseCreate = prisma.fieldResponse.create as jest.Mock;
+const mockSubmissionDelete = prisma.formSubmission.delete as jest.Mock;
+const mockTransaction = prisma.$transaction as jest.Mock;
 const mockRateLimit = rateLimit as jest.Mock;
+const mockGetSupabaseAdmin = getSupabaseAdmin as jest.Mock;
 
 const makeTemplate = (overrides: Record<string, unknown> = {}) => ({
   id: "tpl-1",
@@ -232,6 +236,44 @@ describe("POST /submit returns 400 for file over 10MB", () => {
   });
 });
 
+describe("POST /submit returns 500 and cleans up on file upload failure", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRateLimit.mockReturnValue({ allowed: true, remaining: 4 });
+  });
+
+  it("returns 500, deletes submission, removes uploaded files on Supabase error", async () => {
+    mockFindUnique.mockResolvedValue(makeTemplate({
+      steps: [{
+        id: "step-1", title: "Step 1", order: 0,
+        fields: [
+          { id: "f-0", label: "Company Name", fieldKey: "company-name", type: "TEXT", required: true, isProtected: true, order: 0 },
+          { id: "f-1", label: "Document", fieldKey: "document", type: "FILE", required: true, isProtected: false, order: 1 },
+        ],
+      }],
+    }));
+    mockSubmissionCreate.mockResolvedValue({ id: "sub-fail" });
+    mockSubmissionDelete.mockResolvedValue({});
+
+    // Supabase upload fails
+    const mockStorage = {
+      from: jest.fn(() => ({
+        upload: jest.fn().mockResolvedValue({ error: { message: "bucket error" } }),
+        getPublicUrl: jest.fn().mockReturnValue({ data: { publicUrl: "" } }),
+        remove: jest.fn().mockResolvedValue({}),
+      })),
+    };
+    mockGetSupabaseAdmin.mockReturnValue({ storage: mockStorage });
+
+    const { POST } = await import("@/app/api/templates/[id]/submit/route");
+    const smallFile = new File(["content"], "doc.pdf", { type: "application/pdf" });
+    const req = makeSubmitRequest("tpl-1", { "company-name": "Acme", "document": smallFile });
+    const res = await POST(req, { params: { id: "tpl-1" } });
+    expect(res.status).toBe(500);
+    expect(mockSubmissionDelete).toHaveBeenCalledWith({ where: { id: "sub-fail" } });
+  });
+});
+
 describe("POST /submit creates FormSubmission with correct snapshots on happy path", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -243,6 +285,7 @@ describe("POST /submit creates FormSubmission with correct snapshots on happy pa
     mockFindUnique.mockResolvedValue(template);
     mockSubmissionCreate.mockResolvedValue({ id: "sub-1" });
     mockFieldResponseCreate.mockResolvedValue({});
+    mockTransaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
 
     const { POST } = await import("@/app/api/templates/[id]/submit/route");
     const req = makeSubmitRequest("tpl-1", {
@@ -283,6 +326,7 @@ describe("POST /submit stores null email when no EMAIL field present", () => {
     mockFindUnique.mockResolvedValue(templateNoEmail);
     mockSubmissionCreate.mockResolvedValue({ id: "sub-1" });
     mockFieldResponseCreate.mockResolvedValue({});
+    mockTransaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
 
     const { POST } = await import("@/app/api/templates/[id]/submit/route");
     const req = makeSubmitRequest("tpl-1", { "company-name": "Acme Corp" });

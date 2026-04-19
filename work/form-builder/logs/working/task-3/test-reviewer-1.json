@@ -1,0 +1,71 @@
+{
+  "task": "task-3",
+  "reviewer": "test-reviewer",
+  "verdict": "approve_with_minor_fixes",
+  "findings": [
+    {
+      "id": "F-01",
+      "severity": "info",
+      "category": "tdd-anchor-coverage",
+      "summary": "All 11 TDD anchor cases from task-3.md are covered",
+      "detail": "Every test listed in the TDD Anchor section of 3.md maps 1-to-1 to a describe/it block in submit.test.ts. Coverage: GET 404, GET field exclusion, GET response shape, POST 404, POST 429, POST 400 required field, POST 400 company name, POST 400 MIME type, POST 400 file size, POST 201 happy path, POST null email."
+    },
+    {
+      "id": "F-02",
+      "severity": "minor",
+      "category": "test-behaviour",
+      "summary": "GET /public 'returns steps and fields in order' test name promises ordering but does not assert it",
+      "detail": "The describe label is 'GET /public returns steps and fields in order', but the test body only checks that the response has the expected shape (toHaveProperty calls). It never asserts that steps or fields are sorted by their 'order' property. Either the test name should be changed to 'returns correct response shape' (which it already is in the it-block) or an explicit ordering assertion should be added.",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "lines": "98-122"
+    },
+    {
+      "id": "F-03",
+      "severity": "minor",
+      "category": "test-behaviour",
+      "summary": "POST 429 test does not simulate six calls — it mocks the rate-limiter to return not-allowed directly",
+      "detail": "The TDD anchor says 'call 6 times with same key, assert 6th returns 429'. The test instead mocks rateLimit to immediately return { allowed: false }. This is a valid and common unit-test approach (not testing the limiter itself), but it diverges from the stated anchor intent. The current implementation is fine for a unit test; the description in the test file should clarify it is testing the route's reaction to a rejected rate limit rather than exercising the actual window logic.",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "lines": "141-151"
+    },
+    {
+      "id": "F-04",
+      "severity": "minor",
+      "category": "mock-quality",
+      "summary": "auth mocks (next-auth, auth-options) are present but unused — GET and POST routes have no auth",
+      "detail": "jest.mock('next-auth') and jest.mock('@/lib/auth/auth-options') are declared at the top of the file. Neither public/route.ts nor submit/route.ts imports or uses these modules. The mocks are harmless but add noise. Consider removing them or leaving a comment explaining they guard against transitive imports.",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "lines": "1-2"
+    },
+    {
+      "id": "F-05",
+      "severity": "minor",
+      "category": "mock-quality",
+      "summary": "formSubmission.delete is mocked but the upload-failure / cleanup path is not tested",
+      "detail": "The mock setup includes prisma.formSubmission.delete but there is no test that simulates a Supabase upload error and asserts that (a) the submission is deleted and (b) a 500 is returned. The task's edge-case list explicitly calls out 'File upload to Supabase fails → log error, return 500'. This is the only acceptance criterion that has no test coverage.",
+      "file": "src/__tests__/api/templates/submit.test.ts",
+      "lines": "6"
+    },
+    {
+      "id": "F-06",
+      "severity": "info",
+      "category": "edge-case-coverage",
+      "summary": "11MB file test is reasonable and correctly implemented",
+      "detail": "The test allocates a real Uint8Array(11 * 1024 * 1024) so file.size is genuinely > 10 MB. The route checks file.size *before* calling file.arrayBuffer(), so the large buffer never actually gets read in the happy-path rejection scenario. In a Jest/jsdom environment, allocating ~11 MB is acceptable and the test faithfully exercises the boundary condition. No concern here."
+    },
+    {
+      "id": "F-07",
+      "severity": "info",
+      "category": "edge-case-coverage",
+      "summary": "Missing test: required FILE field sent with zero-size file triggers 400",
+      "detail": "The route handles the case where a required FILE field receives a File with size === 0 (returns 400 'is required'). This branch is different from the MIME/size error paths but is not covered by the current tests. Low priority — the required TEXT field path is already tested — but worth noting for completeness."
+    },
+    {
+      "id": "F-08",
+      "severity": "info",
+      "category": "test-behaviour",
+      "summary": "Happy path test does not assert fieldResponse.create was called for each field",
+      "detail": "The 201 happy path test asserts that formSubmission.create was called with the correct snapshot data but does not verify that fieldResponse.create was called for each field (there are 2 fields in makeTemplate). The TDD anchor says 'Create FieldResponse records for every submitted field'. This is not a blocking issue but adding a toHaveBeenCalledTimes(2) check would strengthen the test."
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db";
 import { StatsCard } from "@/components/dashboard/StatsCard";
+// TODO(task-9): rename MerchantsTable.tsx to SubmissionsTable.tsx when legacy merchants code is removed
 import { SubmissionsTable } from "@/components/dashboard/MerchantsTable";
 
 async function getSubmissionsData() {
@@ -45,6 +46,9 @@ export default async function DashboardPage() {
   if (session.user.role !== "ADMIN" && session.user.role !== "REVIEWER") {
     redirect("/login");
   }
+  // Note: this page uses direct Prisma access so REVIEWER role works here.
+  // GET /api/submissions is ADMIN-only — a deliberate tradeoff until RBAC is
+  // unified (tracked: auth asymmetry between page and API layers).
 
   const { submissions, stats } = await getSubmissionsData();
 

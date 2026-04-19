@@ -1,0 +1,63 @@
+{
+  "task": "task-6",
+  "reviewer": "code-reviewer",
+  "verdict": "approve_with_minor_fixes",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "major",
+      "location": "src/app/(dashboard)/dashboard/page.tsx:9",
+      "finding": "The import path for `SubmissionsTable` still references `MerchantsTable.tsx` by its old filename: `import { SubmissionsTable } from \"@/components/dashboard/MerchantsTable\"`. The file was deliberately kept in-place (per spec), so the import resolves, but the mismatch between the module path and the exported name is confusing and creates a misleading paper trail. It will also block a clean rename in Task 9.",
+      "suggestion": "Rename the file to `SubmissionsTable.tsx` and update the import to `@/components/dashboard/SubmissionsTable`. If renaming is reserved for Task 9, add a TODO comment at the import site explaining the intentional mismatch."
+    },
+    {
+      "id": "CR-2",
+      "severity": "major",
+      "location": "src/app/(dashboard)/dashboard/page.tsx:45",
+      "finding": "The REVIEWER role is granted dashboard access (`session.user.role !== 'ADMIN' && session.user.role !== 'REVIEWER'`), but the submissions API route (`GET /api/submissions`) only accepts ADMIN (`session.user.role !== 'ADMIN'` → 403). A REVIEWER who lands on `/dashboard` will trigger `getSubmissionsData()` which calls `prisma.formSubmission` directly (bypassing the API), so the page itself works — but the auth model is silently inconsistent. If a REVIEWER ever hits the API directly, they are blocked. This asymmetry should be documented or resolved.",
+      "suggestion": "Either extend the API route to also allow REVIEWER, or add a comment on the page noting that REVIEWERs use the direct Prisma path rather than the API. Align the two access policies."
+    },
+    {
+      "id": "CR-3",
+      "severity": "minor",
+      "location": "src/components/dashboard/MerchantsTable.tsx:87-91",
+      "finding": "The \"Open\" link uses a plain `<a>` tag (`<a href={...}>`) rather than Next.js `<Link>`. This causes a full browser navigation (hard reload) instead of a client-side transition, discarding any in-memory React state.",
+      "suggestion": "Replace `<a href={...}>` with `<Link href={...}>` from `next/link` for consistent SPA-style navigation. Note: the task spec explicitly says to use `<a>` for consistency with existing pattern, so this is a minor deviation from best practice rather than a spec violation — flag for future cleanup."
+    },
+    {
+      "id": "CR-4",
+      "severity": "minor",
+      "location": "src/components/dashboard/CreateLinkButton.tsx:1-12",
+      "finding": "`CreateLinkButton` is no longer used by `dashboard/page.tsx` (the page now inlines the `<Link>` directly), but the component is kept as a stub with identical markup. This creates two identical sources of truth for the Templates button styling. If one is updated, the other silently diverges.",
+      "suggestion": "Either have `dashboard/page.tsx` import and use `CreateLinkButton` (renaming it to `TemplatesButton` per spec suggestion), or mark the file with a comment that it is a stub pending deletion in Task 9. Do not maintain two copies of the same button silently."
+    },
+    {
+      "id": "CR-5",
+      "severity": "minor",
+      "location": "src/app/(dashboard)/dashboard/page.tsx:29",
+      "finding": "The `stats` object is typed inline as a plain object literal with hardcoded string keys `{ NEW: 0, IN_REVIEW: 0, APPROVED: 0, REJECTED: 0 }`. If the `FormSubmissionStatus` enum gains a new value in the future, the dashboard will silently ignore it (no TypeScript error, count just stays 0).",
+      "suggestion": "Type `stats` against the Prisma-generated `FormSubmissionStatus` enum: `const stats: Record<FormSubmissionStatus, number> = { ... }`. This makes any future enum extension a compile error on the dashboard, not a silent zero."
+    },
+    {
+      "id": "CR-6",
+      "severity": "minor",
+      "location": "src/components/dashboard/StatsCard.tsx:14-16",
+      "finding": "The \"submissions\" badge in `StatsCard` is hardcoded inside the component rather than being a prop. This prevents reuse of `StatsCard` for any future metric that is not submissions-related.",
+      "suggestion": "Add an optional `badgeLabel?: string` prop defaulting to `\"submissions\"`. This is a low-priority refactor since the component is currently submissions-only, but worth noting for forward compatibility."
+    },
+    {
+      "id": "CR-7",
+      "severity": "info",
+      "location": "src/app/(dashboard)/dashboard/page.tsx:11-40",
+      "finding": "The task spec gave a choice between calling `fetch('/api/submissions')` or using a direct Prisma query. The implementation chose direct Prisma, which is correct for a server component (no HTTP round-trip, no auth token plumbing). The decision is sound and consistent with the existing codebase pattern.",
+      "suggestion": "No action needed. Consider adding a brief comment above `getSubmissionsData()` noting that this intentionally bypasses the REST API for performance, so future developers do not refactor it to a fetch call unnecessarily."
+    },
+    {
+      "id": "CR-8",
+      "severity": "info",
+      "location": "src/components/dashboard/MerchantsTable.tsx:80-84",
+      "finding": "The date is formatted with `toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })` which produces `DD/MM/YYYY`. This is fine for the intended audience but may be surprising in regions expecting `MM/DD/YYYY`. No action required unless locale requirements change.",
+      "suggestion": "No change needed now. If the app ever targets US merchants, consider switching to `en-US` or an ISO-8601 format."
+    }
+  ]
+}

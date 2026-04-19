@@ -1,0 +1,91 @@
+{
+  "task": "task-3",
+  "reviewer": "code-reviewer",
+  "verdict": "approve_with_minor_fixes",
+  "findings": [
+    {
+      "id": "CR-1",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:163-180",
+      "finding": "FieldResponse records are created with individual `await prisma.fieldResponse.create(...)` calls inside a for-loop. If a later create fails (e.g. DB constraint), the FormSubmission already exists and earlier FieldResponses are written — no transaction wraps the writes. This leaves partial, inconsistent data in the DB.",
+      "suggestion": "Wrap the FormSubmission create and all FieldResponse creates in a single `prisma.$transaction([...])` call. File uploads must remain outside (Supabase is not transactional), but DB writes should be atomic."
+    },
+    {
+      "id": "CR-2",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:148-153",
+      "finding": "When a Supabase upload fails mid-loop (multiple FILE fields), the cleanup only deletes the FormSubmission record but does not remove files that were already successfully uploaded to Supabase Storage in previous loop iterations. This creates orphaned files in the bucket.",
+      "suggestion": "Track successfully uploaded storage paths before any failure, and call `supabase.storage.from(FORM_UPLOADS_BUCKET).remove([...paths])` on all previously uploaded files as part of the error cleanup block."
+    },
+    {
+      "id": "CR-3",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/submit/route.ts:81-87",
+      "finding": "The protected-field check (company name) runs before Zod validation and produces a hardcoded error message 'Company Name field is required'. If the template is reconfigured with a different protected field label, the error message will be misleading and out of sync.",
+      "suggestion": "Use `protectedField.label` in the error message: `{ error: \\`${protectedField.label} is required\\` }`, or defer this check into Zod so the required validation message is field-label-aware."
+    },
+    {
+      "id": "CR-4",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/submit/route.ts:116-118",
+      "finding": "`companyName` is extracted from `validationData` after the Zod parse succeeds, but `validationData` only contains non-FILE fields and uses the raw pre-Zod-coerced value. For TEXT fields this is fine, but the logic works around Zod's coerced output (in `parsed.data`) unnecessarily.",
+      "suggestion": "Use `parsed.data[protectedField.fieldKey] as string` instead of going back to `validationData`. This keeps a single source of truth after validation."
+    },
+    {
+      "id": "CR-5",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/submit/route.ts:22",
+      "finding": "`export const dynamic = \"force-dynamic\"` is placed after `import` statements. The ESLint rule for Next.js requires it to be at the top of the file (before imports or as the first export), but the import order here is: `dynamic` export → then imports. This is technically fine for JS but inconsistent — in the `/public/route.ts` it is at line 1 before imports, whereas here it is also line 1 but the file structure is identical. Confirmed both are correct at line 1. (No issue — marking as info.)",
+      "suggestion": "No action required; both route files correctly place `export const dynamic` before imports."
+    },
+    {
+      "id": "CR-6",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/submit/route.ts:55",
+      "finding": "FILE field validation uses `formData.get(field.fieldKey)` which returns the first value for that key. If a client sends multiple files under the same key (e.g., by appending multiple values), only the first is processed silently and others are ignored.",
+      "suggestion": "Use `formData.getAll(field.fieldKey)` and reject the request if `length > 1`, or explicitly document that multi-file per field is not supported."
+    },
+    {
+      "id": "CR-7",
+      "severity": "minor",
+      "location": "src/lib/form-validation.ts:40-52",
+      "finding": "In `buildZodSchema`, optional fields for EMAIL and URL types do not guard against empty strings — `z.string().email().optional()` will reject `\"\"` with a Zod validation error when the field is optional and the user leaves it blank. FormData sends `\"\"` for empty text inputs.",
+      "suggestion": "Wrap optional string-based schemas with `.or(z.literal(\"\"))` or use `.optional().or(z.literal(\"\"))` so empty string passes for non-required fields. Alternatively, filter out empty strings before passing to Zod."
+    },
+    {
+      "id": "CR-8",
+      "severity": "minor",
+      "location": "src/__tests__/api/templates/submit.test.ts:61-71",
+      "finding": "The test describe block for 'GET /public returns 404 for unknown template' and the inner `it` block have identical descriptions. This makes test output redundant and harder to read.",
+      "suggestion": "Use a single outer `describe('GET /public')` and distinct `it` descriptions for each case."
+    },
+    {
+      "id": "CR-9",
+      "severity": "minor",
+      "location": "src/__tests__/api/templates/submit.test.ts:1-301",
+      "finding": "The test for 'POST /submit returns 429 on 6th request' (line 141) does not actually make 6 calls — it mocks `rateLimit` to return `{ allowed: false }` directly. The test description says '6th request from same IP+templateId' which implies behavioral testing. While the mock approach is valid for unit tests, the description is misleading.",
+      "suggestion": "Rename the test to 'returns 429 when rate limiter returns allowed: false' to accurately describe what is being tested."
+    },
+    {
+      "id": "CR-10",
+      "severity": "info",
+      "location": "src/app/api/templates/[id]/submit/route.ts:13",
+      "finding": "The local `FieldType` type definition in `submit/route.ts` duplicates the same type from `src/lib/form-validation.ts`. This is a minor DRY violation.",
+      "suggestion": "Export `FieldType` from `src/lib/form-validation.ts` and import it in the route handler to avoid duplication."
+    },
+    {
+      "id": "CR-11",
+      "severity": "info",
+      "location": "src/app/api/templates/[id]/public/route.ts:12-38",
+      "finding": "The `/public` GET handler has no try/catch around the Prisma query. An unexpected DB error (connection timeout, constraint violation) will bubble up as an unhandled rejection and result in a 500 with a Next.js default error page rather than a clean JSON error.",
+      "suggestion": "Wrap the Prisma call in a try/catch and return `NextResponse.json({ error: 'Internal server error' }, { status: 500 })` on failure, consistent with how the onboarding submit route handles errors."
+    },
+    {
+      "id": "CR-12",
+      "severity": "info",
+      "location": "src/app/api/templates/[id]/submit/route.ts:12-38",
+      "finding": "The `/submit` POST handler similarly lacks a top-level try/catch. Any unexpected exception (e.g., Prisma connection failure, formData parsing error on a malformed request) will surface as an unhandled rejection.",
+      "suggestion": "Add a top-level try/catch returning a 500 JSON response, consistent with the reference onboarding submit route."
+    }
+  ]
+}

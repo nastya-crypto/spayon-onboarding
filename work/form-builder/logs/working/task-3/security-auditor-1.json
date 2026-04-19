@@ -1,0 +1,98 @@
+{
+  "task": "task-3",
+  "reviewer": "security-auditor",
+  "verdict": "request_changes",
+  "findings": [
+    {
+      "id": "SA-1",
+      "severity": "critical",
+      "location": "src/lib/rate-limit.ts:1-32",
+      "finding": "The rate limiter is an in-process in-memory Map. In a multi-instance or serverless deployment (Railway scales horizontally, Next.js serverless functions spawn separate processes per request), each process has its own isolated store. The 5/IP/hour limit is therefore per-process, not per-cluster — a single IP can submit 5 * N times per hour where N is the number of running instances. This makes the rate limit ineffective for actual abuse prevention.",
+      "suggestion": "Replace the in-memory store with a shared atomic counter backed by Redis (e.g., Upstash Redis with `INCR` + `EXPIRE`) or a Supabase table with a timestamp window. This is an architectural dependency that must be resolved before production use of this endpoint."
+    },
+    {
+      "id": "SA-2",
+      "severity": "critical",
+      "location": "src/app/api/templates/[id]/submit/route.ts:22",
+      "finding": "IP extraction relies solely on `x-forwarded-for` without verifying the value is a valid IP address format. A client that controls the header (no reverse proxy stripping it) can inject any string — including `submit:tpl-1:EVIL_KEY` — into the rate-limit key, effectively bypassing or corrupting the rate limiter store. The `unknown` fallback means ALL requests without the header share a single rate-limit bucket.",
+      "suggestion": "Validate the extracted IP against an IPv4/IPv6 regex before using it as a rate-limit key. On Railway, ensure the platform's proxy always sets this header and strips client-supplied values. Fallback to a hashed value or refuse the request rather than sharing a single 'unknown' bucket."
+    },
+    {
+      "id": "SA-3",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:64-68",
+      "finding": "MIME type validation relies on `file.type`, which is the browser-declared Content-Type from the multipart form — it is fully client-controlled and trivially spoofed (e.g., renaming `malware.exe` to `doc.pdf` with type `application/pdf`). No server-side magic-byte / file signature inspection is performed.",
+      "suggestion": "Read the first 8–16 bytes of the file buffer and compare against known magic bytes (e.g., `%PDF-` for PDF, `\\xFF\\xD8\\xFF` for JPEG, `\\x89PNG` for PNG) before accepting the upload. Libraries like `file-type` (npm) can do this in one call: `import { fileTypeFromBuffer } from 'file-type'`."
+    },
+    {
+      "id": "SA-4",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:141-143",
+      "finding": "The sanitized filename uses `replace(/[^a-zA-Z0-9._-]/g, '_')` but does not strip or truncate excessively long filenames. A client could send a filename with 10,000 characters; after sanitization the storage path `{submissionId}/{fieldId}-{timestamp}-{longname}` could exceed storage key length limits (e.g., S3/Supabase has a 1024-byte object key limit), causing silent failures or unexpected behavior.",
+      "suggestion": "Cap the sanitized filename to a reasonable length (e.g., 200 characters) after sanitization: `sanitizedName.slice(0, 200)`."
+    },
+    {
+      "id": "SA-5",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:155-159",
+      "finding": "The code calls `getPublicUrl(storagePath)` and stores the resulting URL directly as the `FieldResponse.value`. If the Supabase bucket `form-uploads` is configured as public (which is implied by `getPublicUrl`), uploaded files — including sensitive merchant documents (PDFs, IDs) — are accessible to anyone with the URL, with no authentication or expiry. The URL is also deterministic (`{submissionId}/{fieldId}-{timestamp}-{sanitizedFilename}`), making it guessable if submission IDs are sequential.",
+      "suggestion": "Use a private bucket and generate signed URLs on-demand when an admin views the submission, rather than storing a permanent public URL. If a public bucket is intentional for MVP, document this decision and ensure the bucket name is not guessable, and that submission IDs use UUIDs (not sequential integers)."
+    },
+    {
+      "id": "SA-6",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:29-43",
+      "finding": "The template is fetched with `include` (full fields including `isProtected`, `fieldKey`, all internal attributes), which is correct for the submit handler. However, there is no check that the template is in an 'active' or 'published' state before accepting submissions. A draft or archived template can receive live submissions.",
+      "suggestion": "Add a `status` or `isPublished` field to `FormTemplate` and check it before processing the submission. Return 404 (or 410 Gone) if the template is not in a published/active state."
+    },
+    {
+      "id": "SA-7",
+      "severity": "major",
+      "location": "src/app/api/templates/[id]/submit/route.ts:48",
+      "finding": "The handler calls `req.formData()` before checking file sizes. For the FILE size check, `file.size` is checked before `arrayBuffer()` is called, which is correct. However, there is no limit on the total request body size. A request with many large non-FILE fields (e.g., 50 TEXTAREA fields each with 10,000 characters) or a very large multipart body could consume excessive server memory before any validation runs.",
+      "suggestion": "Add a `Content-Length` header check before parsing (e.g., reject requests over 50 MB total body) or rely on platform-level body size limits (verify Railway/Next.js default limits are configured appropriately)."
+    },
+    {
+      "id": "SA-8",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/submit/route.ts:112",
+      "finding": "Zod validation errors are returned verbatim to the client: `{ error: parsed.error.issues }`. The `issues` array contains field keys (derived from `fieldKey`), error codes, and paths. While not immediately exploitable, leaking internal field key names to the public could aid reconnaissance — especially since `fieldKey` is intentionally excluded from the `/public` endpoint.",
+      "suggestion": "Map Zod issues to user-friendly messages that reference field labels (not internal keys) before returning them. E.g., build a map from `fieldKey` to `label` and substitute in the error messages."
+    },
+    {
+      "id": "SA-9",
+      "severity": "minor",
+      "location": "src/middleware.ts:29-30",
+      "finding": "The middleware regex patterns `/^\\\/api\\\/templates\\\/[^/]+\\\/public$/` and `/^\\\/api\\\/templates\\\/[^/]+\\\/submit$/` are correct and precise. However, there is no test verifying that paths like `/api/templates` (list), `/api/templates/tpl-1` (CRUD), or `/api/templates/tpl-1/public/extra` remain protected. A future edit to the middleware could inadvertently widen the allowlist.",
+      "suggestion": "Add middleware unit tests (or integration tests) that assert: (a) `/api/templates` without trailing path segment requires auth, (b) `/api/templates/tpl-1` requires auth, (c) `/api/templates/tpl-1/public/extra` requires auth. This prevents regression when middleware is modified."
+    },
+    {
+      "id": "SA-10",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/submit/route.ts:25",
+      "finding": "Rate limit responses do not include `Retry-After` headers, which is required by RFC 6585 for 429 responses and expected by well-behaved HTTP clients and load balancers.",
+      "suggestion": "Add `Retry-After` header to the 429 response. The reset time can be computed from the rate-limit store or approximated as 3600 seconds: `return NextResponse.json({ error: '...' }, { status: 429, headers: { 'Retry-After': '3600' } })`."
+    },
+    {
+      "id": "SA-11",
+      "severity": "minor",
+      "location": "src/app/api/templates/[id]/public/route.ts:40-63",
+      "finding": "The public GET endpoint returns all templates by ID without any access control beyond existence. There is no tenant isolation — if template IDs are UUIDs (good) this is low risk, but if they are sequential integers, enumeration is trivial. Additionally, there is no check that the template belongs to the correct merchant context (if multi-tenancy applies).",
+      "suggestion": "Confirm template IDs are UUIDs (not sequential). If multi-tenancy is required in the future, add a `tenantId` or `merchantId` scope check. At minimum, document the enumeration risk and confirm UUIDs are used."
+    },
+    {
+      "id": "SA-12",
+      "severity": "info",
+      "location": "src/app/api/templates/[id]/submit/route.ts:149",
+      "finding": "The upload error log uses `console.error` with `uploadError.message`. If Supabase error messages ever include user-controlled content (e.g., the filename), this could log user-controlled data. Low risk in this context as the filename is sanitized before use in the path.",
+      "suggestion": "No immediate action needed, but be aware of this pattern if error message content changes. Ensure log aggregation tools sanitize output."
+    },
+    {
+      "id": "SA-13",
+      "severity": "info",
+      "location": "src/app/api/templates/[id]/submit/route.ts:182",
+      "finding": "The success response `{ success: true, submissionId }` exposes the submission ID to the unauthenticated caller. If submission IDs are UUIDs, this is low risk. However, exposure of the ID could allow a submitter to probe or correlate submissions.",
+      "suggestion": "If submission IDs are UUIDs (cuid/uuid), this is acceptable for MVP. Confirm ID generation strategy is non-sequential."
+    }
+  ]
+}

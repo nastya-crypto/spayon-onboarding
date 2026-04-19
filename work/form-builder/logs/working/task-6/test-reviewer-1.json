@@ -1,0 +1,42 @@
+{
+  "task": "task-6",
+  "reviewer": "test-reviewer",
+  "verdict": "approve_with_minor_fixes",
+  "findings": [
+    {
+      "id": "TR-1",
+      "severity": "info",
+      "location": "work/form-builder/tasks/6.md:56-58",
+      "finding": "The task spec explicitly states 'No unit tests required for this task — it is a pure UI wiring task with no logic to isolate.' This exemption is appropriate: the component renders data passed as props, the search filter is a trivial `Array.filter` on a pre-fetched list, and all data-fetching logic (`getSubmissionsData`) delegates to Prisma which is tested at the API layer (Task 4). There is no branching business logic that would benefit from unit test coverage.",
+      "suggestion": "No tests needed. The exemption is correctly applied."
+    },
+    {
+      "id": "TR-2",
+      "severity": "minor",
+      "location": "src/app/(dashboard)/dashboard/page.tsx:29-32",
+      "finding": "The `stats` aggregation loop (`for (const c of counts) { stats[c.status] = c._count.status }`) contains implicit logic: it silently ignores any status value not present in the hardcoded object, and it produces `0` for any status with no records. While simple, this logic is not exercised by any test. If the enum ever changes, the silent-zero behavior could mask a real data problem.",
+      "suggestion": "A single unit test for the stats-merging logic (extractable as a pure function) would eliminate ambiguity. This is low priority given the simplicity, but the function should be extracted and tested if the enum grows. For now, a code comment explaining the default-zero intent is sufficient."
+    },
+    {
+      "id": "TR-3",
+      "severity": "minor",
+      "location": "src/components/dashboard/MerchantsTable.tsx:30-34",
+      "finding": "The client-side search filter (`filtered = submissions.filter(...)`) has two searchable fields (`companyName`, `templateName`) and is case-insensitive. This is the only non-trivial client-side logic in the task. It is currently untested. Edge cases worth covering: empty search string (returns all rows), search string matching only one field, search string with mixed case, no matches (empty state).",
+      "suggestion": "Add a lightweight unit test for the filter logic, either by extracting it to a pure helper function or by rendering `SubmissionsTable` with React Testing Library and asserting visible rows. Given the task's no-tests policy, this is a recommendation for a follow-up — not a blocker."
+    },
+    {
+      "id": "TR-4",
+      "severity": "info",
+      "location": "src/app/(dashboard)/dashboard/page.tsx:42-47",
+      "finding": "The auth guard (redirect to `/login` if no session, or if role is not ADMIN/REVIEWER) is not covered by a test. However, this pattern is shared across all dashboard pages and would typically be covered by a middleware-level or E2E test, not a unit test on the page component.",
+      "suggestion": "Ensure the shared auth guard behavior is covered at the integration or E2E level. No test addition needed within Task 6 scope."
+    },
+    {
+      "id": "TR-5",
+      "severity": "info",
+      "location": "work/form-builder/tasks/6.md:89-99",
+      "finding": "Verification is entirely manual (7 steps including navigating to /dashboard, clicking Templates, submitting a test form). This is appropriate for a UI wiring task but creates a gap: manual steps are not repeatable in CI. If the project gains an E2E suite (Playwright/Cypress), Task 6's acceptance criteria map cleanly to automatable scenarios: dashboard renders stats cards, search filters rows, Open link has correct href.",
+      "suggestion": "When E2E infrastructure is added (likely a later task or separate initiative), prioritize automating the 7 manual verification steps from this task's spec. They are well-defined and low-risk to automate."
+    }
+  ]
+}

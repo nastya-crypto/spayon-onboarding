@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ProgressBar } from "@/components/onboarding/ProgressBar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ const T = {
     submitting: "Submitting...",
     errRequired: "Required field",
     errEmail: "Enter a valid email",
-    errUrl: "Enter a valid URL (https://...)",
+    errUrl: "Enter a valid URL (http:// or https://)",
     errNumber: "Enter a valid number",
     optional: "(optional)",
     successTitle: "Application submitted!",
@@ -56,7 +56,7 @@ const T = {
     submitting: "Отправляем...",
     errRequired: "Обязательное поле",
     errEmail: "Введите корректный email",
-    errUrl: "Введите корректный URL (https://...)",
+    errUrl: "Введите корректный URL (http:// или https://)",
     errNumber: "Введите корректное число",
     optional: "(необязательно)",
     successTitle: "Заявка отправлена!",
@@ -205,7 +205,7 @@ function renderField(
   switch (field.type) {
     case "TEXT":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <input
             type="text"
             className={hasError ? errCls : okCls}
@@ -218,7 +218,7 @@ function renderField(
 
     case "EMAIL":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <input
             type="email"
             className={hasError ? errCls : okCls}
@@ -231,7 +231,7 @@ function renderField(
 
     case "URL":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <input
             type="url"
             className={hasError ? errCls : okCls}
@@ -244,7 +244,7 @@ function renderField(
 
     case "NUMBER":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <input
             type="number"
             className={hasError ? errCls : okCls}
@@ -257,7 +257,7 @@ function renderField(
 
     case "TEXTAREA":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <textarea
             className={`${hasError ? errCls : okCls} resize-none`}
             rows={4}
@@ -270,7 +270,7 @@ function renderField(
 
     case "CHECKBOX":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <input
             type="checkbox"
             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -282,7 +282,7 @@ function renderField(
 
     case "FILE":
       return (
-        <Field key={field.id} label={field.label} required={field.required} optional={optionalLabel} error={error}>
+        <Field label={field.label} required={field.required} optional={optionalLabel} error={error}>
           <input
             type="file"
             className={hasError ? errCls : okCls}
@@ -308,20 +308,26 @@ export function DynamicForm({ template }: { template: PublicTemplate }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Guard: skip saveDraft on initial render to avoid overwriting draft before loadDraft runs
+  const hasMountedRef = useRef(false);
 
   const t = T[lang];
   const currentStep = template.steps[stepIndex];
   const isLastStep = stepIndex === template.steps.length - 1;
+  // Note: template.steps[].title is a single string (no per-lang variant in the data model).
+  // Full bilingual step titles would require API changes — deferred.
   const stepLabels = template.steps.map((s) => s.title);
 
-  // Restore draft on mount
+  // Restore draft on mount; mark mounted so saveDraft can start writing
   useEffect(() => {
     const draft = loadDraft(template.id);
     if (draft) setValues(draft);
+    hasMountedRef.current = true;
   }, [template.id]);
 
-  // Persist draft on every field change (skip FILE fields — not serializable)
+  // Persist draft after mount on every field change (FILE fields excluded — not serializable)
   useEffect(() => {
+    if (!hasMountedRef.current) return;
     saveDraft(template.id, values);
   }, [template.id, values]);
 
@@ -440,9 +446,11 @@ export function DynamicForm({ template }: { template: PublicTemplate }) {
         <div className="space-y-5 mt-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-5">{currentStep.title}</h2>
 
-          {currentStep.fields.map((field) =>
-            renderField(field, values, files, errors, t, setValue, setFile)
-          )}
+          {currentStep.fields.map((field) => (
+            <React.Fragment key={field.id}>
+              {renderField(field, values, files, errors, t, setValue, setFile)}
+            </React.Fragment>
+          ))}
         </div>
 
         {submitError && (

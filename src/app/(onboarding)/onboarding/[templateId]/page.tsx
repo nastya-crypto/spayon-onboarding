@@ -7,28 +7,19 @@ export default async function PublicFormPage({
   params: { templateId: string };
 }) {
   const { templateId } = params;
+  const baseUrl = process.env.NEXTAUTH_URL ?? "";
 
-  let template: PublicTemplate | null = null;
-  let notFound = false;
-
+  let res: Response;
   try {
-    const res = await fetch(
-      `${process.env.NEXTAUTH_URL}/api/templates/${templateId}/public`,
-      { cache: "no-store" }
-    );
-
-    if (res.status === 404) {
-      notFound = true;
-    } else if (res.ok) {
-      template = (await res.json()) as PublicTemplate;
-    } else {
-      throw new Error(`Template fetch failed with status ${res.status}`);
-    }
-  } catch (err) {
-    if (!notFound) throw err; // Let Next.js error boundary handle non-404 errors
+    res = await fetch(`${baseUrl}/api/templates/${templateId}/public`, {
+      cache: "no-store",
+    });
+  } catch {
+    // Network error — let Next.js error boundary handle
+    throw new Error("Failed to reach template service");
   }
 
-  if (notFound) {
+  if (res.status === 404) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
@@ -52,5 +43,10 @@ export default async function PublicFormPage({
     );
   }
 
-  return <DynamicForm template={template!} />;
+  if (!res.ok) {
+    throw new Error(`Template fetch failed with status ${res.status}`);
+  }
+
+  const template = (await res.json()) as PublicTemplate;
+  return <DynamicForm template={template} />;
 }

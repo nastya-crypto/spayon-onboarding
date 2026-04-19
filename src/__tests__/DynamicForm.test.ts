@@ -22,7 +22,7 @@ Object.defineProperty(globalThis, "localStorage", {
 const T_EN = {
   errRequired: "Required field",
   errEmail: "Enter a valid email",
-  errUrl: "Enter a valid URL (https://...)",
+  errUrl: "Enter a valid URL (http:// or https://)",
   errNumber: "Enter a valid number",
 };
 
@@ -112,8 +112,11 @@ describe("localStorage draft", () => {
   });
 
   it("loadDraft silently returns null when localStorage.getItem throws", () => {
-    localStorageMock.getItem.mockImplementationOnce(() => { throw new Error("quota exceeded"); });
-    expect(() => loadDraft("tpl-abc")).not.toThrow();
-    expect(loadDraft("tpl-abc")).toBeNull();
+    localStorageMock.getItem.mockImplementation(() => { throw new Error("quota exceeded"); });
+    let result: Record<string, string> | null | undefined;
+    expect(() => { result = loadDraft("tpl-abc"); }).not.toThrow();
+    expect(result).toBeNull();
+    // Restore to default implementation
+    localStorageMock.getItem.mockImplementation((key: string) => store[key] ?? null);
   });
 });

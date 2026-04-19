@@ -21,7 +21,6 @@ export function NewTemplatePage() {
       const body = await res.json().catch(() => ({}));
       const msg = (body.error ?? "Failed to create template") as string;
       setSaveError(msg);
-      throw new Error(msg);
     }
 
     router.push("/dashboard/templates");

@@ -43,7 +43,6 @@ export function EditTemplatePage({ templateId, initialData }: EditTemplatePagePr
       const body = await res.json().catch(() => ({}));
       const msg = body.error ?? "Failed to update template";
       setSaveError(msg);
-      throw new Error(msg);
     }
 
     router.push("/dashboard/templates");

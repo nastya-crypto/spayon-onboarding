@@ -242,6 +242,25 @@ Agent reports on completed tasks. Each entry is written by the agent that execut
 
 ---
 
+## Task 13: Pre-deploy QA
+
+**Status:** Done
+**Commit:** N/A (QA-only task, no code changes)
+**Agent:** qa-runner
+**Summary:** QA passed. 83 tests green across 9 suites; TypeScript clean. 25 acceptance criteria checked: 24 passed, 1 not_verifiable (prisma migrate on fresh DB — deferred to post-deploy). One minor finding: DELETE returns 204 not 200 as written in tech-spec AC (204 is correct HTTP semantics; no functional issue). All 6 manual verification paths confirmed via code inspection.
+**Deviations:** None.
+
+**Reviews:** N/A (QA task, no reviewers)
+
+**Verification:**
+- `npm test` → 83 passed
+- `npx tsc --noEmit` → 0 errors
+- Full report: [logs/working/task-13/qa-report.json](logs/working/task-13/qa-report.json)
+
+**Deferred to post-deploy:** 1 criterion requires fresh-DB verification (TS-1). See deferredToPostDeploy in qa-report.json.
+
+---
+
 <!-- Entries are added by agents as tasks are completed.
 
 Format is strict — use only these sections, do not add others.

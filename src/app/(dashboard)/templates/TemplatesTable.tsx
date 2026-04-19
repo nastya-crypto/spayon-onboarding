@@ -31,7 +31,7 @@ export function TemplatesTable({ templates, baseUrl }: TemplatesTableProps) {
     }
   }
 
-  async function handleDelete(id: string, name: string) {
+  async function handleDelete(id: string) {
     if (!window.confirm("Are you sure?")) return;
     setDeletingId(id);
     try {
@@ -42,7 +42,7 @@ export function TemplatesTable({ templates, baseUrl }: TemplatesTableProps) {
         return;
       }
       router.refresh();
-    } catch (err) {
+    } catch {
       window.alert("Network error. Please try again.");
     } finally {
       setDeletingId(null);
@@ -109,7 +109,7 @@ export function TemplatesTable({ templates, baseUrl }: TemplatesTableProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(tpl.id, tpl.name)}
+                    onClick={() => handleDelete(tpl.id)}
                     disabled={deletingId === tpl.id}
                     className="text-red-500 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >

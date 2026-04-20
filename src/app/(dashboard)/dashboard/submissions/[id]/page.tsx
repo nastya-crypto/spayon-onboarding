@@ -44,36 +44,51 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function renderFileValue(value: string): React.ReactNode {
+  let parsed: { url?: string; mimeType?: string; size?: number } = {};
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return <span className="text-gray-600">{value}</span>;
+  }
+  const url = parsed.url ?? "";
+  if (!isValidFileUrl(url)) return <span className="text-gray-600">{value}</span>;
+
+  const isImage = parsed.mimeType?.startsWith("image/");
+  if (isImage) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt="uploaded file" className="max-h-48 rounded border border-gray-200 mt-1" />
+      </a>
+    );
+  }
+  return (
+    <a href={url} download className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+      Download file{parsed.size != null ? ` (${Math.round(parsed.size / 1024)} KB)` : ""}
+    </a>
+  );
+}
+
 function renderFieldValue(value: string, fieldType: string): React.ReactNode {
   if (fieldType === "CHECKBOX") {
     return value === "true" ? "Yes" : value === "false" ? "No" : value;
   }
+  if (fieldType === "FILE") return renderFileValue(value);
+  return <span>{value}</span>;
+}
 
-  if (fieldType === "FILE") {
-    let parsed: { url?: string; mimeType?: string; size?: number } = {};
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      return <span className="text-gray-600">{value}</span>;
-    }
-
-    const url = parsed.url ?? "";
-    if (isValidFileUrl(url)) {
-      return (
-        <a
-          href={url}
-          download
-          className="text-blue-600 hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Download file{parsed.size != null ? ` (${parsed.size} bytes)` : ""}
-        </a>
-      );
-    }
-    return <span className="text-gray-600">{value}</span>;
+function renderOrphanValue(value: string): React.ReactNode {
+  // Detect file JSON by shape
+  if (value.startsWith("{") && value.includes('"url"')) return renderFileValue(value);
+  // Detect plain URL
+  if (isValidFileUrl(value)) {
+    return (
+      <a href={value} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+        {value}
+      </a>
+    );
   }
-
   return <span>{value}</span>;
 }
 
@@ -208,7 +223,7 @@ export default async function SubmissionPage({ params }: { params: { id: string 
             <InfoRow
               key={response.id}
               label={response.fieldLabel}
-              value={<span>{response.value}</span>}
+              value={renderOrphanValue(response.value)}
             />
           ))}
         </Section>
